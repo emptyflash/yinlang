@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import Lexer as L
 
 main :: IO ()
-main = someFunc
+main = L.someFunc
