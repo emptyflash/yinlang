@@ -23,7 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 - directory
 - text
-- parsec
+- megaparsec >= 7.0.4 && < 7.1.0
+- parser-combinators
 
 library:
   source-dirs: src

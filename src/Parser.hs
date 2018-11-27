@@ -5,69 +5,74 @@ module Parser
     , parseModule
     ) where
 
-import Text.Parsec
-import Text.Parsec.Text.Lazy (Parser)
+import Text.Megaparsec
+import Text.Megaparsec.Char
+import Text.Megaparsec.Debug
 
-import qualified Text.Parsec.Expr as Ex
-import qualified Text.Parsec.Token as Token
+import Data.Void
+import Control.Monad (void)
+import Control.Monad.Combinators.Expr
 
-import qualified Data.Text.Lazy as Lazy
-import Data.Functor.Identity
+import qualified Lexer as L
 
-import Lexer
 import Syntax
 
+type Parser = Parsec Void String
+type StringError = ParseErrorBundle String Void
 
 variable :: Parser Expr
 variable = do
-  x <- identifier
+  x <- L.identifier
   return (Var x)
 
 int :: Parser Expr
 int = do
-  n <- Token.natural lexer
+  n <- L.integer
   return (Lit (LInt (fromIntegral n)))
 
 bool :: Parser Expr
-bool = (reserved "true" >> return (Lit (LBool True)))
-    <|> (reserved "false" >> return (Lit (LBool False)))
+bool = (L.reserved "true" >> return (Lit (LBool True)))
+   <|> (L.reserved "false" >> return (Lit (LBool False)))
 
 lambda :: Parser Expr
 lambda = do
-  reservedOp "\\"
-  args <- many identifier
-  reservedOp "->"
+  L.reserved "\\"
+  args <- many L.identifier
+  L.reserved "->"
   body <- expr
   return $ foldr Lam body args
 
 letdecl :: Parser Decl
 letdecl = do
-  x <- identifier
-  reservedOp "="
+  x <- L.identifier
+  L.reserved "="
   e <- expr
+  L.eolSpaceConsumer
   pure (x, e)
 
 letin :: Parser Expr
 letin = do
-  reserved "let"
-  decls <- sepBy1 letdecl (try $ symbol "\n")
-  reserved "in"
+  L.reserved "let"
+  L.eolSpaceConsumer
+  decls <- some letdecl
+  L.reserved "in"
+  L.eolSpaceConsumer
   e <- expr
   return (Let decls e)
 
 ifthen :: Parser Expr
 ifthen = do
-  reserved "if"
+  L.reserved "if"
   cond <- expr
-  reserved "then"
+  L.reserved "then"
   tr <- expr
-  reserved "else"
+  L.reserved "else"
   fl <- expr
   return (If cond tr fl)
 
 aexp :: Parser Expr
 aexp =
-      parens expr
+      L.parens expr
   <|> bool
   <|> int
   <|> ifthen
@@ -80,94 +85,92 @@ term = aexp >>= \x ->
                 try (many aexp >>= \xs -> return (foldl App x xs))
                 <|> return x
 
-type Op a = Ex.Operator Lazy.Text () Identity a
-type Operators a = Ex.OperatorTable Lazy.Text () Identity a
-
-infixOp :: String -> (a -> a -> a) -> Ex.Assoc -> Op a
-infixOp x f = Ex.Infix (reservedOp x >> return f)
-
-table :: Operators Expr
+table :: [[Operator Parser Expr]]
 table = 
-    [ [ infixOp "." (Op Swizzle) Ex.AssocLeft
+    [ [ InfixL (Op Swizzle <$ L.symbol ".")
       ]
-    , [ infixOp "*" (Op Mul) Ex.AssocLeft
-      , infixOp "/" (Op Div) Ex.AssocLeft
+    , [ InfixL (Op Mul <$ L.symbol "*")
+      , InfixL (Op Div <$ L.symbol "/")
       ]
-    , [ infixOp "+" (Op Add) Ex.AssocLeft
-      , infixOp "-" (Op Sub) Ex.AssocLeft
+    , [ InfixL (Op Add <$ L.symbol "+")
+      , InfixL (Op Sub <$ L.symbol "-")
       ]
-    , [ infixOp "==" (Op Eql) Ex.AssocLeft
+    , [ InfixL (Op Eql <$ L.symbol "==")
       ]
     ]
 
 expr :: Parser Expr
-expr = Ex.buildExpressionParser table term
+expr = makeExprParser term table
 
 fundecl :: Parser Decl
 fundecl = do
-  name <- identifier
-  args <- many identifier
-  reservedOp "="
-  body <- expr
+  name <- L.identifier
+  args <- many L.identifier
+  L.reserved "="
+  body <-  expr
   return $ (name, foldr Lam body args)
 
 tyLit :: Parser Expr
 tyLit = 
-  string "vec2" *> pure (Ty Vec2)
-  <|> string "vec3" *> pure (Ty Vec3)
-  <|> string "vec4" *> pure (Ty Vec4)
-  <|> string "mat2" *> pure (Ty Mat4)
-  <|> string "mat2" *> pure (Ty Mat2)
-  <|> string "mat4" *> pure (Ty Mat4)
-  <|> string "float" *> pure (Ty Float)
+  L.symbol "vec2" *> pure (Ty Vec2)
+  <|> L.symbol "vec3" *> pure (Ty Vec3)
+  <|> L.symbol "vec4" *> pure (Ty Vec4)
+  <|> L.symbol "mat2" *> pure (Ty Mat4)
+  <|> L.symbol "mat2" *> pure (Ty Mat2)
+  <|> L.symbol "mat4" *> pure (Ty Mat4)
+  <|> L.symbol "float" *> pure (Ty Float)
 
 constdecl :: Parser Decl
 constdecl = do
-  reserved "constant" 
-  name <- identifier
+  L.reserved "constant" 
+  name <- L.identifier
   type_ <- tyLit
   pure (name, type_)
 
 attributedecl :: Parser Decl
 attributedecl = do
-  reserved "attribute" 
-  name <- identifier
+  L.reserved "attribute" 
+  name <- L.identifier
   type_ <- tyLit
   pure (name, type_)
 
 uniformdecl :: Parser Decl
 uniformdecl = do
-  reserved "uniform" 
-  name <- identifier
+  L.reserved "uniform" 
+  name <- L.identifier
   type_ <- tyLit
   pure (name, type_)
 
 varyingdecl :: Parser Decl
 varyingdecl = do
-  reserved "varying" 
-  name <- identifier
+  L.reserved "varying" 
+  name <- L.identifier
   type_ <- tyLit
   pure (name, type_)
 
 decl :: Parser Decl
 decl = 
   fundecl 
-  <|> constdecl 
-  <|> attributedecl 
-  <|> uniformdecl
-  <|> varyingdecl
+  -- <|> constdecl 
+  -- <|> attributedecl 
+  -- <|> uniformdecl
+  -- <|> varyingdecl
 
 top :: Parser Decl
 top = do
-  x <- decl
-  optional semi
-  return x
+  L.eolSpaceConsumer
+  d <- decl
+  pure d
 
 modl ::  Parser [Decl]
-modl = many top
+modl = do
+  d <- some $ try top
+  L.eolSpaceConsumer
+  eof
+  pure d
 
-parseExpr :: Lazy.Text -> Either ParseError Expr
-parseExpr input = parse (contents expr) "<stdin>" input
+parseExpr :: String -> Either StringError Expr
+parseExpr input = parse expr "<stdin>" input
 
-parseModule ::  FilePath -> Lazy.Text -> Either ParseError [(String, Expr)]
-parseModule fname input = parse (contents modl) fname input
+parseModule ::  FilePath -> String -> Either StringError [(String, Expr)]
+parseModule fname input = parse modl fname input

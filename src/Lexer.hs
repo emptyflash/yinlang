@@ -1,13 +1,13 @@
 module Lexer where
 
-import Text.Parsec
-import Text.Parsec.Text.Lazy
-import qualified Data.Text.Lazy as Lazy
-import qualified Text.Parsec.Token as Token
+import Text.Megaparsec
+import Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer as L
 
-import Data.Functor.Identity
-import Debug.Trace
+import Data.Void
+import Control.Monad (void)
 
+type Parser = Parsec Void String
 
 reservedNames :: [String]
 reservedNames = 
@@ -34,51 +34,44 @@ reservedOps =
     , "."
     ]
 
-lexer :: Token.GenTokenParser Lazy.Text () Identity
-lexer = Token.makeTokenParser $ Token.LanguageDef
-  { Token.commentStart    = "{-"
-  , Token.commentEnd      = "-}"
-  , Token.commentLine     = "--"
-  , Token.nestedComments  = True
-  , Token.identStart      = letter
-  , Token.identLetter     = alphaNum <|> oneOf "_'"
-  , Token.opStart         = oneOf $ map head $ reservedOps 
-  , Token.opLetter        = oneOf $ reservedOps >>= id
-  , Token.reservedNames   = reservedNames
-  , Token.reservedOpNames = reservedOps
-  , Token.caseSensitive   = True
-  }
+makeSpaceConsumer :: Parser () -> Parser ()
+makeSpaceConsumer sp = L.space sp lineCmnt blockCmnt
+  where
+    lineCmnt  = L.skipLineComment "#"
+    blockCmnt = L.skipBlockComment "/*" "*/"
 
-reserved :: String -> Parser ()
-reserved = Token.reserved lexer
+spaceConsumer :: Parser ()
+spaceConsumer = makeSpaceConsumer $ skipSome $ oneOf " \t"
 
-reservedOp :: String -> Parser ()
-reservedOp = Token.reservedOp lexer
+eolSpaceConsumer :: Parser ()
+eolSpaceConsumer = makeSpaceConsumer space1
 
-identifier :: Parser String
-identifier = Token.identifier lexer
-
-parens :: Parser a -> Parser a
-parens = Token.parens lexer
-
-semiSep :: Parser a -> Parser [a]
-semiSep = Token.semiSep lexer
-
-semiSep1 :: Parser a -> Parser [a]
-semiSep1 = Token.semiSep1 lexer
-
-semi :: Parser String
-semi = Token.semi lexer
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme spaceConsumer
 
 symbol :: String -> Parser String
-symbol = Token.symbol lexer
+symbol = L.symbol spaceConsumer
 
-contents :: Parser a -> Parser a
-contents p = do
-  Token.whiteSpace lexer
-  r <- p
-  eof
-  pure r
+integer :: Parser Integer
+integer = lexeme L.decimal
+
+reserved :: String -> Parser ()
+reserved w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
+
+identifier :: Parser String
+identifier = (lexeme . try) (p >>= check)
+  where
+    p       = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '-')
+    check x = if x `elem` reservedNames
+                then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+                else return x
+
+parens :: Parser a -> Parser a
+parens = between (symbol "(") (symbol ")")
+
+
+discardNewline :: Parser ()
+discardNewline = option () (void eol)
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
