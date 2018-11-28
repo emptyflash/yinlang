@@ -1,18 +1,56 @@
-import qualified Parser as P
-
+import Data.Bifunctor
 import System.Directory
 import Test.Hspec
+
+import qualified Parser as P
+
 import Syntax
 import Lexer
+import Infer
+import Type
+
 
 
 main :: IO ()
 main = hspec $ do
+    describe "inference" $ do
+        it "should infer integers" $ do
+            let expr = Lit $ LInt 1
+            let res = inferExpr mempty expr
+            res `shouldBe` Right (Forall [] typeInt)
+
+        it "should infer let exprs" $ do
+            let expr = (Let [ ("a", Lit $ LInt 1)
+                            , ("b", Var "a")] (Var "b"))
+            let res = inferExpr mempty expr
+            res `shouldBe` Right (Forall [] typeInt)
+
+        it "should parse complex exprs" $ do
+            let expr = Let [ ("b", Lit $ LInt 2)
+                           , ("c", Lit $ LInt 3)
+                           , ("a", If (Lit $ LBool True) 
+                                     (Op Sub (Var "b") (Var "b")) 
+                                     (Op Add (Var "c") (Var "c")))
+                           ]
+                        (Op Mul (Var "a") (Var "c"))
+            let res = inferExpr mempty expr
+            res `shouldBe` Right (Forall [] typeInt)
+
+        it "should typecheck std lib" $ do
+            path <- makeAbsolute "std.yin"
+            stdLib <- readFile path
+            let exprs = first show $ P.parseModule "std.yin" $ stdLib 
+            let res = exprs >>= (first show . inferTop mempty )
+            case res of
+                Right env -> do { putStrLn $ show env; True `shouldBe` True }
+                Left err -> do { putStrLn $ show err; False `shouldBe` True }
+
+
     describe "parser" $ do
         it "should parse addition" $ do
-            let expr = "1 + 1"
+            let expr = "1.0 + 1.0"
             let result = P.parseExpr expr
-            result `shouldBe` Right (Op Add (Lit $ LInt 1) (Lit $ LInt 1))
+            result `shouldBe` Right (Op Add (Lit $ LFloat 1.0) (Lit $ LFloat 1.0))
 
         it "should parse multiplication" $ do
             let expr = "1 * 1"
@@ -22,7 +60,7 @@ main = hspec $ do
         it "should parse swizzle" $ do
             let expr = "a.xyz"
             let result = P.parseExpr expr
-            result `shouldBe` Right (Op Swizzle (Var "a") (Var "xyz"))
+            result `shouldBe` Right (Swizzle "a" "xyz")
 
         it "should parse nested application" $ do
             let expr = "a 1 1"
@@ -49,5 +87,5 @@ main = hspec $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
             case P.parseModule "std.yin" stdLib of
-                Right a -> do { putStrLn $ show a; True `shouldBe` True }
+                Right a -> True `shouldBe` True
                 Left err -> do { putStrLn $ show err; False `shouldBe` True }

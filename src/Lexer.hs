@@ -55,6 +55,9 @@ symbol = L.symbol spaceConsumer
 integer :: Parser Integer
 integer = lexeme L.decimal
 
+float :: Parser Float
+float = lexeme L.float
+
 reserved :: String -> Parser ()
 reserved w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 

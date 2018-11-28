@@ -28,7 +28,12 @@ variable = do
 int :: Parser Expr
 int = do
   n <- L.integer
-  return (Lit (LInt (fromIntegral n)))
+  return (Lit (LInt n))
+
+float :: Parser Expr
+float = do
+  f <- L.float
+  pure . Lit $ LFloat f
 
 bool :: Parser Expr
 bool = (L.reserved "true" >> return (Lit (LBool True)))
@@ -70,14 +75,23 @@ ifthen = do
   fl <- expr
   return (If cond tr fl)
 
+swizzle :: Parser Expr
+swizzle = do
+  name <- L.identifier
+  L.symbol "."
+  op <- L.identifier
+  pure $ Swizzle name op
+
 aexp :: Parser Expr
 aexp =
       L.parens expr
+  <|> try float
   <|> bool
   <|> int
   <|> ifthen
   <|> letin
   <|> lambda
+  <|> try swizzle
   <|> variable
 
 term :: Parser Expr
@@ -87,9 +101,7 @@ term = aexp >>= \x ->
 
 table :: [[Operator Parser Expr]]
 table = 
-    [ [ InfixL (Op Swizzle <$ L.symbol ".")
-      ]
-    , [ InfixL (Op Mul <$ L.symbol "*")
+    [ [ InfixL (Op Mul <$ L.symbol "*")
       , InfixL (Op Div <$ L.symbol "/")
       ]
     , [ InfixL (Op Add <$ L.symbol "+")
@@ -172,5 +184,5 @@ modl = do
 parseExpr :: String -> Either StringError Expr
 parseExpr input = parse expr "<stdin>" input
 
-parseModule ::  FilePath -> String -> Either StringError [(String, Expr)]
+parseModule ::  FilePath -> String -> Either StringError [Decl]
 parseModule fname input = parse modl fname input

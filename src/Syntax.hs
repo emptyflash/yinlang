@@ -12,11 +12,14 @@ data Expr
   | If Expr Expr Expr
   | Fix Expr
   | Op Binop Expr Expr
-  | Ty TyLit
+  | Swizzle Var Var
+  | Ty GlslTypes
   deriving (Show, Eq, Ord)
 
-data TyLit
-  = Float
+data GlslTypes
+  = Bool
+  | Int
+  | Float
   | Vec2
   | Vec3
   | Vec4
@@ -28,9 +31,10 @@ data TyLit
 data Lit
   = LInt Integer
   | LBool Bool
+  | LFloat Float
   deriving (Show, Eq, Ord)
 
-data Binop = Add | Sub | Mul | Eql | Div | Swizzle
+data Binop = Add | Sub | Mul | Eql | Div
   deriving (Eq, Ord, Show)
 
 data Program = Program [Decl] Expr deriving (Show, Eq)

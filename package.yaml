@@ -25,6 +25,9 @@ dependencies:
 - text
 - megaparsec >= 7.0.4 && < 7.1.0
 - parser-combinators
+- mtl
+- containers
+- bifunctors
 
 library:
   source-dirs: src
