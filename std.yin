@@ -7,14 +7,12 @@ circle st r = let
   in 1.0 - result
 
 box st size = let
-  s = vec2 0.5 - size * 0.5
-  uv = smoothstep s (s + vec2 0.001) st
-  uv2 = uv * smoothstep s (s + vec2 0.001) (vec2 1.0 - st)
+  s = vec2 0.5 0.5 - size * vec2 0.5 0.5
+  uv = smoothstep s (s + vec2 0.001 0.001) st
+  uv2 = uv * smoothstep s (s + vec2 0.001 0.001) (vec2 1.0 1.0 - st)
   in uv2.x * uv2.y
 
-/*
-rotate2d a = mat4 (cos a) (-sin a) (sin a) (cos a)
-*/
+#rotate2d a = mat4 (cos a) (-sin a) (sin a) (cos a)
 
 
 # Randomness
@@ -28,32 +26,39 @@ noise st = let
   b = random (i + vec2 1.0 0.0)
   c = random (i + vec2 0.0 1.0)
   d = random (i + vec2 1.0 1.0)
-  u = f * f * (3.0 - 2.0 * f)
+  u = f * f * (vec2 3.0 3.0 - vec2 2.0 2.0 * f)
   in mix a b u.x + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y
 
 fbm st = let
-  value_1 = 0.0
-  amplitude_1 = 0.5
+  value_1 = vec2 0.0 0.0
+  amplitude_1 = vec2 0.5 0.5
+  noise_1 = noise st
 
-  value_2 = value_1 + amplitude_1 * noise st
-  st_2 = st * 2.0
-  amplitude_2 = amplitude_1 * 0.5
+  value_2 = value_1 + amplitude_1 * vec2 noise_1 noise_1
+  st_2 = st * vec2 2.0 2.0
+  amplitude_2 = amplitude_1 * vec2 0.5 0.5
 
-  value_3 = value_2 + amplitude_2 * noise st_2
-  st_3 = st_2 * 2.0
-  amplitude_3 = amplitude_2 * 0.5
+  noise_2 = noise st_2
+  value_3 = value_2 + amplitude_2 * vec2 noise_2 noise_2
+  st_3 = st_2 * vec2 2.0 2.0
+  amplitude_3 = amplitude_2 * vec2 0.5 0.5
 
-  value_4 = value_3 + amplitude_3 * noise st_3
-  st_4 = st_3 * 2.0
-  amplitude_4 = amplitude_3 * 0.5
+  noise_3 = noise st_3
+  value_4 = value_3 + amplitude_3 * vec2 noise_3 noise_3
+  st_4 = st_3 * vec2 2.0 2.0
+  amplitude_4 = amplitude_3 * vec2 0.5 0.5
 
-  value_5 = value_4 + amplitude_4 * noise st_4
+  noise_4 = noise st_4
+  value_5 = value_4 + amplitude_4 * vec2 noise_4 noise_4
   in value_5
 
 # Color
 
 hsb2rgb c = let
-  unbound = abs (mod (c.x * 6.0 + vec3 0.0 4.0 2.0) 6.0 - 3.0) - 1.0
+  red = c.x * 6.0 
+  shift = vec3 red red red + vec3 0.0 4.0 2.0
+  modulus = mod shift 6.0 
+  unbound = abs (modulus - vec3 3.0 3.0 3.0) - vec3 1.0 1.0 1.0
   bound = clamp unbound 0.0 1.0
-  rgb = bound * bound * (3.0 - 2.0 * bound)
-  in c.z * mix (vec3 1.0) rgb c.y
+  rgb = bound * bound * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * bound)
+  in vec3 c.z c.z c.z * mix (vec3 1.0 1.0 1.0) rgb c.y

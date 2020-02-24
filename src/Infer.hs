@@ -33,6 +33,23 @@ data TypeError
   | UnboundVariable String
   deriving (Show, Eq)
 
+
+glslStdLib :: TypeEnv
+glslStdLib = TypeEnv $ Map.fromList 
+    [ ("vec2", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Vec2)) 
+    , ("vec3", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Vec3))
+    , ("dot", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TCon Float))
+    , ("smoothstep", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("fract", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("sin", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("floor", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("mix", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TCon Float `TArr` TVar (TV "a")))
+    , ("abs", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("mod", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float `TArr` TVar (TV "a")))
+    , ("clamp", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float `TArr` TCon Float `TArr` TVar (TV "a")))
+    ]
+
+
 runInfer :: Infer (Subst, Type) -> Either TypeError Scheme
 runInfer m = case evalState (runExceptT m) initUnique of
   Left err  -> Left err
@@ -126,11 +143,11 @@ generalize :: TypeEnv -> Type -> Scheme
 generalize env t  = Forall as t
   where as = Set.toList $ ftv t `Set.difference` ftv env
 
-ops :: Binop -> Type
-ops Add = typeInt `TArr` typeInt `TArr` typeInt
-ops Mul = typeInt `TArr` typeInt `TArr` typeInt
-ops Sub = typeInt `TArr` typeInt `TArr` typeInt
-ops Eql = typeInt `TArr` typeInt `TArr` typeBool
+ops :: Type -> Binop -> Type
+ops tv Add = tv `TArr` tv `TArr` tv
+ops tv Mul = tv `TArr` tv `TArr` tv
+ops tv Sub = tv `TArr` tv `TArr` tv
+ops tv Eql = tv `TArr` typeInt `TArr` typeBool
 
 lookupEnv :: TypeEnv -> Var -> Infer (Subst, Type)
 lookupEnv (TypeEnv env) x =
@@ -182,7 +199,12 @@ infer env ex = case ex of
     inferPrim env [cond, tr, fl] (typeBool `TArr` tv `TArr` tv `TArr` tv)
 
   Op op e1 e2 -> do
-    inferPrim env [e1, e2] (ops op)
+    tv <- fresh
+    inferPrim env [e1, e2] (ops tv op)
+
+  Swizzle var sw -> do
+    return (nullSubst, typeFloat)
+    
 
   Lit (LInt _)  -> return (nullSubst, typeInt)
   Lit (LBool _) -> return (nullSubst, typeBool)

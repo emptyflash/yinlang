@@ -19,6 +19,11 @@ main = hspec $ do
             let res = inferExpr mempty expr
             res `shouldBe` Right (Forall [] typeInt)
 
+        it "should infer operators" $ do
+            let expr = (Op Add (Lit $ LFloat 1) (Lit $ LFloat 1))
+            let res = inferExpr mempty expr
+            res `shouldBe` Right (Forall [] typeFloat)
+
         it "should infer let exprs" $ do
             let expr = (Let [ ("a", Lit $ LInt 1)
                             , ("b", Var "a")] (Var "b"))
@@ -40,7 +45,7 @@ main = hspec $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
             let exprs = first show $ P.parseModule "std.yin" $ stdLib 
-            let res = exprs >>= (first show . inferTop mempty )
+            let res = exprs >>= (first show . inferTop glslStdLib )
             case res of
                 Right env -> do { putStrLn $ show env; True `shouldBe` True }
                 Left err -> do { putStrLn $ show err; False `shouldBe` True }
