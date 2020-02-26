@@ -8,6 +8,7 @@ import Syntax
 import Lexer
 import Infer
 import Type
+import Gen
 
 
 
@@ -94,3 +95,11 @@ main = hspec $ do
             case P.parseModule "std.yin" stdLib of
                 Right a -> True `shouldBe` True
                 Left err -> do { putStrLn $ show err; False `shouldBe` True }
+
+    describe "code generation" $ do
+        
+        it "should generate simple let expr" $ do
+            let expr = (Let [ ("a", Lit $ LInt 1)
+                            , ("b", Var "a")] (Var "b"))
+            let result = generateExpr glslStdLib expr
+            result `shouldBe` "int a = 1;\nint b = a;\nreturn b;\n"
