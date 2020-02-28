@@ -1,6 +1,7 @@
 import Data.Bifunctor
 import System.Directory
 import Test.Hspec
+import qualified Data.Map as Map
 
 import qualified Parser as P
 
@@ -104,7 +105,28 @@ main = hspec $ do
             let result = generateExpr glslStdLib expr
             result `shouldBe` "int a = 1;\nint b = a;\nreturn b;\n"
 
-        it "should generate application" $ do
+        it "should generate single application" $ do
+            let expr = App (Var "func") (Lit (LFloat 0.5))
+            let result = generateExpr glslStdLib expr
+            result `shouldBe` "func(0.5)"
+
+        it "should generate triple application" $ do
             let expr = App (App (App (Var "vec3") (Lit (LFloat 0.5))) (Lit (LFloat 0.5))) (Lit (LFloat 0.5))
             let result = generateExpr glslStdLib expr
             result `shouldBe` "vec3(0.5, 0.5, 0.5)"
+
+        it "should generate declarations" $ do
+            let decl = ("circle",Lam "st" (Lam "r" (Lit $ LFloat 1.0)))
+            let env = TypeEnv $ Map.fromList [ ("circle",Forall [] (TArr (TCon Vec2) (TArr (TCon Float) (TCon Float)))) ]
+            let result = generateDecl env decl
+            result `shouldBe` "float circle(vec2 st, float r) {\nreturn 1.0;\n}\n\n"
+
+        it "should generate the stdlib" $ do
+            path <- makeAbsolute "std.yin"
+            stdLib <- readFile path
+            let exprs = first show $ P.parseModule "std.yin" $ stdLib 
+            let Right env = exprs >>= (first show . inferTop glslStdLib )
+            let Right decls = P.parseModule "std.yin" stdLib 
+            let result = decls >>= generateDecl env
+            putStrLn result
+            True `shouldBe` True

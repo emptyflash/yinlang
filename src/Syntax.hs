@@ -26,6 +26,7 @@ data GlslTypes
   | Mat2
   | Mat3
   | Mat4
+  | GenType
   deriving (Show, Eq, Ord)
 
 data Lit
