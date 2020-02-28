@@ -23,6 +23,11 @@ generateLet env ((var, expr):xs) inExpr state = let
     Right scheme@(Forall [] (TCon ty)) -> (extend env (var, scheme), state ++ (generateType ty) ++ " " ++ var ++ " = " ++ (generateExpr env expr) ++ ";\n")
   in generateLet newEnv xs inExpr newState
 
+genApp :: TypeEnv -> Expr -> Expr -> String
+genApp env (Var fn) expr = fn ++ "(" ++ generateExpr env expr
+genApp env (App app1expr1 app1expr2) (App app2expr1 app2expr2) = genApp env app1expr1 app1expr1 ++ ", " ++ genApp env app2expr1 app2expr2
+genApp env (App app1 app2) (Lit lit) = genApp env app1 app2 ++ ", " ++ generateExpr env (Lit lit) ++ ")"
+
 generateExpr :: TypeEnv -> Expr -> String
 generateExpr env expr = case expr of
   Var x -> x
@@ -35,3 +40,5 @@ generateExpr env expr = case expr of
     LBool bool -> show bool
 
     LFloat float -> show float
+
+  App exp1 exp2 -> genApp env exp1 exp2

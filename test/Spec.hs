@@ -93,7 +93,7 @@ main = hspec $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
             case P.parseModule "std.yin" stdLib of
-                Right a -> True `shouldBe` True
+                Right a -> do { putStrLn $ show a; True `shouldBe` True }
                 Left err -> do { putStrLn $ show err; False `shouldBe` True }
 
     describe "code generation" $ do
@@ -103,3 +103,8 @@ main = hspec $ do
                             , ("b", Var "a")] (Var "b"))
             let result = generateExpr glslStdLib expr
             result `shouldBe` "int a = 1;\nint b = a;\nreturn b;\n"
+
+        it "should generate application" $ do
+            let expr = App (App (App (Var "vec3") (Lit (LFloat 0.5))) (Lit (LFloat 0.5))) (Lit (LFloat 0.5))
+            let result = generateExpr glslStdLib expr
+            result `shouldBe` "vec3(0.5, 0.5, 0.5)"
