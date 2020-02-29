@@ -12,6 +12,7 @@ generateGlslType ty = case ty of
     Float -> "float"
     Vec2 -> "vec2"
     Vec3 -> "vec3"
+    Vec4 -> "vec4"
     Mat2 -> "mat2"
     Mat3 -> "mat3"
     Mat4 -> "mat4"
@@ -19,11 +20,11 @@ generateGlslType ty = case ty of
 
 generateOp :: Binop -> String
 generateOp op = case op of
-    Add -> "+"
-    Sub -> "-"
-    Mul -> "*"
-    Eql -> "=="
-    Div -> "/"
+    Add -> " + "
+    Sub -> " - "
+    Mul -> " * "
+    Eql -> " == "
+    Div -> " / "
 
 generateLet :: TypeEnv -> [Decl] -> Expr -> String -> String
 generateLet env [] inExpr state = state ++ "return " ++ (generateExpr env inExpr) ++ ";\n"
@@ -83,7 +84,8 @@ generateLam env (Lam var expr@(Lam _ _)) (TArr ty1 ty2) = let
     in generateGlslType glslTy ++ " " ++ var ++ ", " ++ generateLam newEnv expr ty2
 
 generateDecl :: TypeEnv -> Decl -> String
+generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
 generateDecl env (var, lam@(Lam _ _)) = case typeof env var of
     Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
-    a -> "wtf"
+    a -> show a
 generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr

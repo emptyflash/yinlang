@@ -122,50 +122,31 @@ fundecl = do
   body <-  expr
   return $ (name, foldr Lam body args)
 
-tyLit :: Parser Expr
+tyLit :: Parser GlslTypes
 tyLit = 
-  L.symbol "vec2" *> pure (Ty Vec2)
-  <|> L.symbol "vec3" *> pure (Ty Vec3)
-  <|> L.symbol "vec4" *> pure (Ty Vec4)
-  <|> L.symbol "mat2" *> pure (Ty Mat4)
-  <|> L.symbol "mat2" *> pure (Ty Mat2)
-  <|> L.symbol "mat4" *> pure (Ty Mat4)
-  <|> L.symbol "float" *> pure (Ty Float)
-
-constdecl :: Parser Decl
-constdecl = do
-  L.reserved "constant" 
-  name <- L.identifier
-  type_ <- tyLit
-  pure (name, type_)
-
-attributedecl :: Parser Decl
-attributedecl = do
-  L.reserved "attribute" 
-  name <- L.identifier
-  type_ <- tyLit
-  pure (name, type_)
+  L.symbol "vec2" *> pure Vec2
+  <|> L.symbol "vec3" *> pure Vec3
+  <|> L.symbol "vec4" *> pure Vec4
+  <|> L.symbol "mat2" *> pure Mat4
+  <|> L.symbol "mat2" *> pure Mat2
+  <|> L.symbol "mat4" *> pure Mat4
+  <|> L.symbol "float" *> pure Float
+  <|> L.symbol "bool" *> pure Bool
+  <|> L.symbol "int" *> pure Int
 
 uniformdecl :: Parser Decl
 uniformdecl = do
   L.reserved "uniform" 
   name <- L.identifier
   type_ <- tyLit
-  pure (name, type_)
-
-varyingdecl :: Parser Decl
-varyingdecl = do
-  L.reserved "varying" 
-  name <- L.identifier
-  type_ <- tyLit
-  pure (name, type_)
+  pure (name, ParameterDecl $ Uniform type_)
 
 decl :: Parser Decl
 decl = 
   fundecl 
   -- <|> constdecl 
   -- <|> attributedecl 
-  -- <|> uniformdecl
+  <|> uniformdecl
   -- <|> varyingdecl
 
 top :: Parser Decl

@@ -43,6 +43,13 @@ main = hspec $ do
             let res = inferExpr mempty expr
             res `shouldBe` Right (Forall [] typeInt)
 
+        it "Handle uniform declartions" $ do
+            let decls = [("u_audio", ParameterDecl $ Uniform Vec4), ("test", (Var "u_audio"))]
+            let Right env = inferTop emptyTyenv decls
+            putStrLn $ show env
+            let res = typeof env "test"
+            res `shouldBe` Just (Forall [] $ TCon Vec4)
+
         it "should typecheck std lib" $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
@@ -90,7 +97,12 @@ main = hspec $ do
             let result = P.parseExpr expr
             result `shouldBe` Right (Let [("a", If (Lit $ LBool True) (Op Sub (Var "b") (Var "b")) (Op Add (Var "c") (Var "c")))] (Op Mul (Var "a") (Var "c")))
 
-        it "should succeed" $ do
+        it "should parse uniform declartions" $ do
+            let expr = "uniform u_audio vec4"
+            let result = P.parseModule "test" expr
+            result `shouldBe` Right [("u_audio", ParameterDecl $ Uniform Vec4)]
+
+        it "should parse the std lib" $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
             case P.parseModule "std.yin" stdLib of
@@ -120,6 +132,12 @@ main = hspec $ do
             let env = TypeEnv $ Map.fromList [ ("circle",Forall [] (TArr (TCon Vec2) (TArr (TCon Float) (TCon Float)))) ]
             let result = generateDecl env decl
             result `shouldBe` "float circle(vec2 st, float r) {\nreturn 1.0;\n}\n\n"
+
+        it "should generate uniform declartions" $ do
+            let decl = ("u_audio", ParameterDecl $ Uniform Vec4)
+            let env = emptyTyenv
+            let result = generateDecl env decl
+            result `shouldBe` "uniform vec4 u_audio;\n"
 
         it "should generate the stdlib" $ do
             path <- makeAbsolute "std.yin"

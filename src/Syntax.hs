@@ -13,7 +13,11 @@ data Expr
   | Fix Expr
   | Op Binop Expr Expr
   | Swizzle Var Var
-  | Ty GlslTypes
+  | ParameterDecl GlslParameter
+  deriving (Show, Eq, Ord)
+
+data GlslParameter
+  = Uniform GlslTypes
   deriving (Show, Eq, Ord)
 
 data GlslTypes

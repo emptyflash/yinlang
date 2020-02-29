@@ -38,6 +38,7 @@ glslStdLib :: TypeEnv
 glslStdLib = TypeEnv $ Map.fromList 
     [ ("vec2", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Vec2)) 
     , ("vec3", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Vec3))
+    , ("vec4", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Vec4))
     , ("dot", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TCon Float))
     , ("smoothstep", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
     , ("fract", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
@@ -230,6 +231,9 @@ inferExpr env = runInfer . infer env
 
 inferTop :: TypeEnv -> [Decl] -> Either TypeError TypeEnv
 inferTop env [] = Right env
+inferTop env ((name, ParameterDecl (Uniform ty)):xs) = let
+  newEnv = extend env $ (name, Forall [] $ TCon ty)
+  in inferTop newEnv xs
 inferTop env ((name, ex):xs) = case inferExpr env ex of
   Left err -> Left err
   Right ty -> inferTop (extend env (name, ty)) xs
