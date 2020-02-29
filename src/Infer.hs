@@ -42,11 +42,14 @@ glslStdLib = TypeEnv $ Map.fromList
     , ("smoothstep", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
     , ("fract", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
     , ("sin", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("cos", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
     , ("floor", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
     , ("mix", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TCon Float `TArr` TVar (TV "a")))
     , ("abs", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
     , ("mod", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float `TArr` TVar (TV "a")))
     , ("clamp", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float `TArr` TCon Float `TArr` TVar (TV "a")))
+    , ("atan", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float))
+    , ("length", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float))
     ]
 
 
@@ -147,7 +150,8 @@ ops :: Type -> Binop -> Type
 ops tv Add = tv `TArr` tv `TArr` tv
 ops tv Mul = tv `TArr` tv `TArr` tv
 ops tv Sub = tv `TArr` tv `TArr` tv
-ops tv Eql = tv `TArr` typeInt `TArr` typeBool
+ops tv Div = tv `TArr` tv `TArr` tv
+ops tv Eql = tv `TArr` tv `TArr` typeBool
 
 lookupEnv :: TypeEnv -> Var -> Infer (Subst, Type)
 lookupEnv (TypeEnv env) x =

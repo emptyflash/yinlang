@@ -62,3 +62,13 @@ hsb2rgb c = let
   bound = clamp unbound 0.0 1.0
   rgb = bound * bound * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * bound)
   in vec3 c.z c.z c.z * mix (vec3 1.0 1.0 1.0) rgb c.y
+
+kaleid st nSides = let
+  offset = st - vec2 0.5 0.5
+  r = length st
+  a = atan st.x st.y
+  pi = 2.0 * 3.1416
+  b = mod a (pi / nSides)
+  c = abs (a - pi / nSides / 2.0)
+  d = vec2 r r * vec2 (cos c) (sin c)
+  in d
