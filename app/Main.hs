@@ -34,7 +34,7 @@ compileProgram prog = do
     env <- first show $ Infer.inferTop Infer.glslStdLib decls
     newEnv <- case Infer.typeof env "main" of
         Just (Forall [] (TCon Vec2 `TArr` TCon Vec4)) -> Right $ renameMainType env
-        otherwise -> Left "Missing main function with correct type (vec2 -> float)"
+        Just scheme -> Left $ "Missing main function with correct type. Expected: Vec2 -> Vec4, Found: " ++ show scheme
     let newDecls = renameMain decls
     let code = newDecls >>= Gen.generateDecl newEnv 
     pure $ code ++ "\n\nvoid main() { gl_FragColor = userEntrypoint(gl_FragCoord.xy); }"

@@ -128,8 +128,8 @@ tyLit =
   L.symbol "Vec2" *> pure T.Vec2
   <|> L.symbol "Vec3" *> pure T.Vec3
   <|> L.symbol "Vec4" *> pure T.Vec4
-  <|> L.symbol "Mat2" *> pure T.Mat4
   <|> L.symbol "Mat2" *> pure T.Mat2
+  <|> L.symbol "Mat3" *> pure T.Mat3
   <|> L.symbol "Mat4" *> pure T.Mat4
   <|> L.symbol "Float" *> pure T.Float
   <|> L.symbol "Bool" *> pure T.Bool

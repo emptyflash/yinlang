@@ -2,6 +2,5 @@ flags: {}
 packages:
 - .
 extra-deps:
-- megaparsec-7.0.4
-- primitive-0.6.4.0
-resolver: lts-12.19
+- megaparsec-8.0.0
+resolver: lts-16.25

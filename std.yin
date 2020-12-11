@@ -17,44 +17,58 @@ box st size = let
 
 # Randomness
 
-random st = fract (sin (dot st (vec2 12.9898 78.233)) * 43758.5453123)
+simplex_random x = fract (sin x * 10000.0)
 
-noise st = let
-  i = floor st
-  a = random i
-  b = random (i + vec2 1.0 0.0)
-  c = random (i + vec2 0.0 1.0)
-  d = random (i + vec2 1.0 1.0)
-  f = fract st
-  u = f * f * (vec2 3.0 3.0 - vec2 2.0 2.0 * f)
-  e = mix a b u.x 
-  g = (c - a) * u.y * (1.0 - u.x)
-  h = (d - b) * u.x * u.y
-  in e + g + h
+simplex_noise p = let
+    step = vec3 110.0 241.0 171.0
+    i = floor p
+    f = fract p
+
+    n = dot i step
+    u = f * f * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * f)
+
+    first_corner = simplex_random (n + dot step (vec3 0.0 0.0 0.0))
+    second_corner = simplex_random (n + dot step (vec3 1.0 0.0 0.0))
+    third_corner = simplex_random (n + dot step (vec3 0.0 1.0 0.0))
+    fourth_corner = simplex_random (n + dot step (vec3 1.0 1.0 0.0))
+    fifth_corner = simplex_random (n + dot step (vec3 0.0 0.0 1.0))
+    sixth_corner = simplex_random (n + dot step (vec3 1.0 0.0 1.0))
+    seventh_corner = simplex_random (n + dot step (vec3 0.0 1.0 1.0))
+    eighth_corner = simplex_random (n + dot step (vec3 1.0 1.0 1.0))
+
+    mix_x_1 = mix first_corner second_corner u.x
+    mix_x_2 = mix third_corner fourth_corner u.x
+    mix_y_1 = mix mix_x_1 mix_x_2 u.y
+
+    mix_x_3 = mix fifth_corner sixth_corner u.x
+    mix_x_4 = mix seventh_corner eighth_corner u.x
+    mix_y_2 = mix mix_x_3 mix_x_4 u.y
+
+    in mix mix_y_1 mix_y_2 u.z
 
 # TODO: this is implemented incorrectly
-fbm st = let
-  value_1 = 0.0
-  amplitude_1 = 0.5
-  noise_1 = noise st
-
-  value_2 = value_1 + amplitude_1 * noise_1
-  st_2 = st * vec2 2.0 2.0
-  amplitude_2 = amplitude_1 * 0.5
-
-  noise_2 = noise st_2
-  value_3 = value_2 + amplitude_2 * noise_2
-  st_3 = st_2 * vec2 2.0 2.0
-  amplitude_3 = amplitude_2 * 0.5
-
-  noise_3 = noise st_3
-  value_4 = value_3 + amplitude_3 * noise_3
-  st_4 = st_3 * vec2 2.0 2.0
-  amplitude_4 = amplitude_3 * 0.5
-
-  noise_4 = noise st_4
-  value_5 = value_4 + amplitude_4 * noise_4
-  in value_5
+#fbm st = let
+  #value_1 = 0.0
+  #amplitude_1 = 0.5
+  #noise_1 = noise st
+#
+  #value_2 = value_1 + amplitude_1 * noise_1
+  #st_2 = st * vec2 2.0 2.0
+  #amplitude_2 = amplitude_1 * 0.5
+#
+  #noise_2 = noise st_2
+  #value_3 = value_2 + amplitude_2 * noise_2
+  #st_3 = st_2 * vec2 2.0 2.0
+  #amplitude_3 = amplitude_2 * 0.5
+#
+  #noise_3 = noise st_3
+  #value_4 = value_3 + amplitude_3 * noise_3
+  #st_4 = st_3 * vec2 2.0 2.0
+  #amplitude_4 = amplitude_3 * 0.5
+#
+  #noise_4 = noise st_4
+  #value_5 = value_4 + amplitude_4 * noise_4
+  #in value_5
 
 kaleid st nSides = let
   offset = st - vec2 0.5 0.5
@@ -72,35 +86,12 @@ permute x = let
     c = b * x
     in mod c 289.0
 
-taylor_inv_sqrt r = let
-    s = 1.79284291400159 
-    t = 0.85373472095314 
-    in vec4 s s s s * vec4 t t t t * r
-
-noise2 v = let
-  C = vec2 (1.0 / 6.0) (1.0/3.0)
-  D = vec4 0.0 0.5 1.0 2.0
-
-  # First corner
-  d0 = dot v C.yyy
-  i = floor v + vec3 d0 d0 d0
-  d1 = dot i C.xxx
-  x0 = v - i + vec3 d1 d1 d1
-
-  # Other corners
-  g = step x0.yzx x0.xyz
-  l = vec3 1.0 1.0 1.0 - g
-  i1 = min g.xyz l.zxy
-  # TODO: finish simplex noise
-  in i1
-
-
-hsb2rgb : Vec4 -> Vec4
-hsb2rgb c = let
-  red = c.x * 6.0 
-  shift = vec3 red red red + vec3 0.0 4.0 2.0
-  modulus = mod shift 6.0 
-  unbound = abs (modulus - vec3 3.0 3.0 3.0) - vec3 1.0 1.0 1.0
-  bound = clamp unbound 0.0 1.0
-  rgb = bound * bound * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * bound)
-  in vec3 c.z c.z c.z * mix (vec3 1.0 1.0 1.0) rgb c.y
+#hsb2rgb : Vec4 -> Vec4
+#hsb2rgb c = let
+  #red = c.x * 6.0 
+  #shift = vec3 red red red + vec3 0.0 4.0 2.0
+  #modulus = mod shift 6.0 
+  #unbound = abs (modulus - vec3 3.0 3.0 3.0) - vec3 1.0 1.0 1.0
+  #bound = clamp unbound 0.0 1.0
+  #rgb = bound * bound * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * bound)
+  #in vec3 c.z c.z c.z * mix (vec3 1.0 1.0 1.0) rgb c.y
