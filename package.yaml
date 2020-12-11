@@ -33,7 +33,7 @@ library:
   source-dirs: src
 
 executables:
-  yinlang-exe:
+  yin:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

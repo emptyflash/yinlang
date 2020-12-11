@@ -32,7 +32,7 @@ main = hspec $ do
             let res = inferExpr mempty expr
             res `shouldBe` Right (Forall [] typeInt)
 
-        it "should parse complex exprs" $ do
+        it "should infer complex exprs" $ do
             let expr = Let [ ("b", Lit $ LInt 2)
                            , ("c", Lit $ LInt 3)
                            , ("a", If (Lit $ LBool True) 
@@ -49,6 +49,13 @@ main = hspec $ do
             putStrLn $ show env
             let res = typeof env "test"
             res `shouldBe` Just (Forall [] $ TCon Vec4)
+
+        it "Handle type ascription" $ do
+            let decls = [("test",TypeAscription (Forall [] (TArr (TCon Vec2) (TCon Vec2))))]
+            let Right env = inferTop emptyTyenv decls
+            putStrLn $ show env
+            let res = typeof env "test"
+            res `shouldBe` Just (Forall [] (TArr (TCon Vec2) (TCon Vec2)))
 
         it "should typecheck std lib" $ do
             path <- makeAbsolute "std.yin"
@@ -98,9 +105,14 @@ main = hspec $ do
             result `shouldBe` Right (Let [("a", If (Lit $ LBool True) (Op Sub (Var "b") (Var "b")) (Op Add (Var "c") (Var "c")))] (Op Mul (Var "a") (Var "c")))
 
         it "should parse uniform declartions" $ do
-            let expr = "uniform u_audio vec4"
+            let expr = "uniform u_audio : Vec4"
             let result = P.parseModule "test" expr
             result `shouldBe` Right [("u_audio", ParameterDecl $ Uniform Vec4)]
+            
+        it "should parse type ascription" $ do
+            let expr = "test : Vec2 -> Vec2"
+            let result = P.parseModule "test" expr
+            result `shouldBe` Right [("test",TypeAscription (Forall [] (TArr (TCon Vec2) (TCon Vec2))))]
 
         it "should parse the std lib" $ do
             path <- makeAbsolute "std.yin"
@@ -138,6 +150,12 @@ main = hspec $ do
             let env = emptyTyenv
             let result = generateDecl env decl
             result `shouldBe` "uniform vec4 u_audio;\n"
+
+        it "should ignore type ascription" $ do
+            let decl = ("test",TypeAscription (Forall [] (TArr (TCon Vec2) (TCon Vec2))))
+            let env = emptyTyenv
+            let result = generateDecl env decl
+            result `shouldBe` ""
 
         it "should generate the stdlib" $ do
             path <- makeAbsolute "std.yin"

@@ -14,6 +14,7 @@ import Control.Monad (void)
 import Control.Monad.Combinators.Expr
 
 import qualified Lexer as L
+import qualified Type as T
 
 import Syntax
 
@@ -122,28 +123,42 @@ fundecl = do
   body <-  expr
   return $ (name, foldr Lam body args)
 
-tyLit :: Parser GlslTypes
+tyLit :: Parser T.GlslTypes
 tyLit = 
-  L.symbol "vec2" *> pure Vec2
-  <|> L.symbol "vec3" *> pure Vec3
-  <|> L.symbol "vec4" *> pure Vec4
-  <|> L.symbol "mat2" *> pure Mat4
-  <|> L.symbol "mat2" *> pure Mat2
-  <|> L.symbol "mat4" *> pure Mat4
-  <|> L.symbol "float" *> pure Float
-  <|> L.symbol "bool" *> pure Bool
-  <|> L.symbol "int" *> pure Int
+  L.symbol "Vec2" *> pure T.Vec2
+  <|> L.symbol "Vec3" *> pure T.Vec3
+  <|> L.symbol "Vec4" *> pure T.Vec4
+  <|> L.symbol "Mat2" *> pure T.Mat4
+  <|> L.symbol "Mat2" *> pure T.Mat2
+  <|> L.symbol "Mat4" *> pure T.Mat4
+  <|> L.symbol "Float" *> pure T.Float
+  <|> L.symbol "Bool" *> pure T.Bool
+  <|> L.symbol "Int" *> pure T.Int
+
+scheme :: Parser T.Scheme
+scheme = do
+  type_ : rest <- sepBy1 tyLit $ L.reserved "->"
+  pure $ T.Forall [] $ foldl T.TArr (T.TCon type_) (map T.TCon rest)
+
+typeAscription :: Parser Decl
+typeAscription = do
+  name <- L.identifier
+  L.reserved ":"
+  scheme <- scheme
+  pure (name, TypeAscription scheme)
 
 uniformdecl :: Parser Decl
 uniformdecl = do
   L.reserved "uniform" 
   name <- L.identifier
+  L.reserved ":"
   type_ <- tyLit
   pure (name, ParameterDecl $ Uniform type_)
 
 decl :: Parser Decl
 decl = 
-  fundecl 
+  try fundecl 
+  <|> typeAscription
   -- <|> constdecl 
   -- <|> attributedecl 
   <|> uniformdecl

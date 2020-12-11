@@ -1,0 +1,3 @@
+main st = let
+    c = circle st 1.0
+    in vec4 c c c c

@@ -1,13 +1,24 @@
 module Type where
 
-import qualified Syntax as S
-
 newtype TVar = TV String
+  deriving (Show, Eq, Ord)
+
+data GlslTypes
+  = Bool
+  | Int
+  | Float
+  | Vec2
+  | Vec3
+  | Vec4
+  | Mat2
+  | Mat3
+  | Mat4
+  | GenType
   deriving (Show, Eq, Ord)
 
 data Type
   = TVar TVar
-  | TCon S.GlslTypes
+  | TCon GlslTypes
   | TArr Type Type
   deriving (Show, Eq, Ord)
 
@@ -17,10 +28,10 @@ data Scheme = Forall [TVar] Type
   deriving (Show, Eq, Ord)
 
 typeInt :: Type
-typeInt  = TCon S.Int
+typeInt  = TCon Int
 
 typeFloat :: Type
-typeFloat  = TCon S.Float
+typeFloat  = TCon Float
 
 typeBool :: Type
-typeBool = TCon S.Bool
+typeBool = TCon Bool

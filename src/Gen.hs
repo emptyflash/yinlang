@@ -56,7 +56,7 @@ generateExpr env expr = case expr of
 
   If e1 e2 e3 -> generateExpr env e1 ++ " ? " ++ generateExpr env e2 ++ " : " ++ generateExpr env e3
 
-  Op op e1 e2 -> generateExpr env e1 ++ generateOp op ++ generateExpr env e2
+  Op op e1 e2 -> "(" ++ generateExpr env e1 ++ generateOp op ++ generateExpr env e2 ++ ")"
 
   Swizzle v1 v2 -> v1 ++ "." ++ v2
 
@@ -84,6 +84,7 @@ generateLam env (Lam var expr@(Lam _ _)) (TArr ty1 ty2) = let
     in generateGlslType glslTy ++ " " ++ var ++ ", " ++ generateLam newEnv expr ty2
 
 generateDecl :: TypeEnv -> Decl -> String
+generateDecl env (_, TypeAscription _) = ""
 generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
 generateDecl env (var, lam@(Lam _ _)) = case typeof env var of
     Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty

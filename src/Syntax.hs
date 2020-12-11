@@ -1,5 +1,7 @@
 module Syntax where
 
+import qualified Type as T
+
 type Var = String
 type Decl = (Var, Expr)
 
@@ -14,23 +16,11 @@ data Expr
   | Op Binop Expr Expr
   | Swizzle Var Var
   | ParameterDecl GlslParameter
+  | TypeAscription T.Scheme
   deriving (Show, Eq, Ord)
 
 data GlslParameter
-  = Uniform GlslTypes
-  deriving (Show, Eq, Ord)
-
-data GlslTypes
-  = Bool
-  | Int
-  | Float
-  | Vec2
-  | Vec3
-  | Vec4
-  | Mat2
-  | Mat3
-  | Mat4
-  | GenType
+  = Uniform T.GlslTypes
   deriving (Show, Eq, Ord)
 
 data Lit

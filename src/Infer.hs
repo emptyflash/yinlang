@@ -41,6 +41,7 @@ glslStdLib = TypeEnv $ Map.fromList
     , ("vec4", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Vec4))
     , ("dot", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TCon Float))
     , ("smoothstep", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("step", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
     , ("fract", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
     , ("sin", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
     , ("cos", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a")))
@@ -51,6 +52,8 @@ glslStdLib = TypeEnv $ Map.fromList
     , ("clamp", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float `TArr` TCon Float `TArr` TVar (TV "a")))
     , ("atan", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float))
     , ("length", Forall [TV "a"] (TVar (TV "a") `TArr` TCon Float))
+    , ("min", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
+    , ("max", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
     ]
 
 
@@ -176,6 +179,13 @@ extendDecls env =
       (s1, e2) <- extendDecl e decl
       pure (s1 `compose` s, e2)
 
+swizzleType :: String -> Type
+swizzleType sw = case length sw of
+    1 -> TCon Float
+    2 -> TCon Vec2
+    3 -> TCon Vec3
+    4 -> TCon Vec4
+
 infer :: TypeEnv -> Expr -> Infer (Subst, Type)
 infer env ex = case ex of
 
@@ -208,7 +218,7 @@ infer env ex = case ex of
     inferPrim env [e1, e2] (ops tv op)
 
   Swizzle var sw -> do
-    return (nullSubst, typeFloat)
+    return (nullSubst, swizzleType sw)
     
 
   Lit (LInt _)  -> return (nullSubst, typeInt)
@@ -233,6 +243,9 @@ inferTop :: TypeEnv -> [Decl] -> Either TypeError TypeEnv
 inferTop env [] = Right env
 inferTop env ((name, ParameterDecl (Uniform ty)):xs) = let
   newEnv = extend env $ (name, Forall [] $ TCon ty)
+  in inferTop newEnv xs
+inferTop env ((name, TypeAscription scheme):xs) = let
+  newEnv = extend env $ (name, scheme)
   in inferTop newEnv xs
 inferTop env ((name, ex):xs) = case inferExpr env ex of
   Left err -> Left err
