@@ -17,9 +17,9 @@ box st size = let
 
 # Randomness
 
-simplex_random x = fract (sin x * 10000.0)
+random x = fract (sin x * 10000.0)
 
-simplex_noise p = let
+noise p = let
     step = vec3 110.0 241.0 171.0
     i = floor p
     f = fract p
@@ -27,14 +27,14 @@ simplex_noise p = let
     n = dot i step
     u = f * f * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * f)
 
-    first_corner = simplex_random (n + dot step (vec3 0.0 0.0 0.0))
-    second_corner = simplex_random (n + dot step (vec3 1.0 0.0 0.0))
-    third_corner = simplex_random (n + dot step (vec3 0.0 1.0 0.0))
-    fourth_corner = simplex_random (n + dot step (vec3 1.0 1.0 0.0))
-    fifth_corner = simplex_random (n + dot step (vec3 0.0 0.0 1.0))
-    sixth_corner = simplex_random (n + dot step (vec3 1.0 0.0 1.0))
-    seventh_corner = simplex_random (n + dot step (vec3 0.0 1.0 1.0))
-    eighth_corner = simplex_random (n + dot step (vec3 1.0 1.0 1.0))
+    first_corner = random (n + dot step (vec3 0.0 0.0 0.0))
+    second_corner = random (n + dot step (vec3 1.0 0.0 0.0))
+    third_corner = random (n + dot step (vec3 0.0 1.0 0.0))
+    fourth_corner = random (n + dot step (vec3 1.0 1.0 0.0))
+    fifth_corner = random (n + dot step (vec3 0.0 0.0 1.0))
+    sixth_corner = random (n + dot step (vec3 1.0 0.0 1.0))
+    seventh_corner = random (n + dot step (vec3 0.0 1.0 1.0))
+    eighth_corner = random (n + dot step (vec3 1.0 1.0 1.0))
 
     mix_x_1 = mix first_corner second_corner u.x
     mix_x_2 = mix third_corner fourth_corner u.x
@@ -46,29 +46,33 @@ simplex_noise p = let
 
     in mix mix_y_1 mix_y_2 u.z
 
-# TODO: this is implemented incorrectly
-#fbm st = let
-  #value_1 = 0.0
-  #amplitude_1 = 0.5
-  #noise_1 = noise st
-#
-  #value_2 = value_1 + amplitude_1 * noise_1
-  #st_2 = st * vec2 2.0 2.0
-  #amplitude_2 = amplitude_1 * 0.5
-#
-  #noise_2 = noise st_2
-  #value_3 = value_2 + amplitude_2 * noise_2
-  #st_3 = st_2 * vec2 2.0 2.0
-  #amplitude_3 = amplitude_2 * 0.5
-#
-  #noise_3 = noise st_3
-  #value_4 = value_3 + amplitude_3 * noise_3
-  #st_4 = st_3 * vec2 2.0 2.0
-  #amplitude_4 = amplitude_3 * 0.5
-#
-  #noise_4 = noise st_4
-  #value_5 = value_4 + amplitude_4 * noise_4
-  #in value_5
+fbm p = let
+    value_1 = 0.0
+    amplitude_1 = 0.5
+    frequency_1 = 0.0
+
+    value_2 = value_1 + amplitude_1 * noise p
+    amplitude_2 = amplitude_1 * 0.5
+    p_2 = p * vec3 2.0 2.0 1.0
+
+    value_3 = value_2 + amplitude_2 * noise p_2
+    amplitude_3 = amplitude_2 * 0.5
+    p_3 = p_2 * vec3 2.0 2.0 1.0
+
+    value_4 = value_3 + amplitude_3 * noise p_3
+    amplitude_4 = amplitude_3 * 0.5
+    p_4 = p_3 * vec3 2.0 2.0 1.0
+
+    value_5 = value_4 + amplitude_4 * noise p_4
+    amplitude_5 = amplitude_4 * 0.5
+    p_5 = p_4 * vec3 2.0 2.0 1.0
+
+    value_6 = value_5 + amplitude_5 * noise p_5
+    amplitude_6 = amplitude_5 * 0.5
+    p_6 = p_5 * vec3 2.0 2.0 1.0
+
+    value_7 = value_6 + amplitude_6 * noise p_6
+    in value_7
 
 kaleid st nSides = let
   offset = st - vec2 0.5 0.5
