@@ -1,5 +1,6 @@
 module Gen where
 
+import Debug.Trace
 import Infer
 import Syntax
 import Type
@@ -79,7 +80,7 @@ generateLam env (Lam var expr) (TArr ty (TCon _)) = let
         expr -> "return " ++ generateExpr newEnv expr ++ ";\n"
     in signature ++ body ++ "}\n\n"
 generateLam env (Lam var expr@(Lam _ _)) (TArr ty1 ty2) = let
-    glslTy = glslType ty1
+    glslTy =  glslType ty1
     newEnv = extend env (var, (Forall [] (TCon glslTy)))
     in generateGlslType glslTy ++ " " ++ var ++ ", " ++ generateLam newEnv expr ty2
 

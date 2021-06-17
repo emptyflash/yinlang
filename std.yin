@@ -20,21 +20,21 @@ box st size = let
 random x = fract (sin x * 10000.0)
 
 noise p = let
-    step = vec3 110.0 241.0 171.0
+    const_step = vec3 110.0 241.0 171.0
     i = floor p
     f = fract p
 
-    n = dot i step
+    n = dot i const_step
     u = f * f * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * f)
 
-    first_corner = random (n + dot step (vec3 0.0 0.0 0.0))
-    second_corner = random (n + dot step (vec3 1.0 0.0 0.0))
-    third_corner = random (n + dot step (vec3 0.0 1.0 0.0))
-    fourth_corner = random (n + dot step (vec3 1.0 1.0 0.0))
-    fifth_corner = random (n + dot step (vec3 0.0 0.0 1.0))
-    sixth_corner = random (n + dot step (vec3 1.0 0.0 1.0))
-    seventh_corner = random (n + dot step (vec3 0.0 1.0 1.0))
-    eighth_corner = random (n + dot step (vec3 1.0 1.0 1.0))
+    first_corner = random (n + dot const_step (vec3 0.0 0.0 0.0))
+    second_corner = random (n + dot const_step (vec3 1.0 0.0 0.0))
+    third_corner = random (n + dot const_step (vec3 0.0 1.0 0.0))
+    fourth_corner = random (n + dot const_step (vec3 1.0 1.0 0.0))
+    fifth_corner = random (n + dot const_step (vec3 0.0 0.0 1.0))
+    sixth_corner = random (n + dot const_step (vec3 1.0 0.0 1.0))
+    seventh_corner = random (n + dot const_step (vec3 0.0 1.0 1.0))
+    eighth_corner = random (n + dot const_step (vec3 1.0 1.0 1.0))
 
     mix_x_1 = mix first_corner second_corner u.x
     mix_x_2 = mix third_corner fourth_corner u.x
@@ -53,49 +53,64 @@ fbm p = let
 
     value_2 = value_1 + amplitude_1 * noise p
     amplitude_2 = amplitude_1 * 0.5
-    p_2 = p * vec3 2.0 2.0 1.0
+    p_2 = p * vec3 2.0 2.0 2.0
 
     value_3 = value_2 + amplitude_2 * noise p_2
     amplitude_3 = amplitude_2 * 0.5
-    p_3 = p_2 * vec3 2.0 2.0 1.0
+    p_3 = p_2 * vec3 2.0 2.0 2.0
 
     value_4 = value_3 + amplitude_3 * noise p_3
     amplitude_4 = amplitude_3 * 0.5
-    p_4 = p_3 * vec3 2.0 2.0 1.0
+    p_4 = p_3 * vec3 2.0 2.0 2.0
 
     value_5 = value_4 + amplitude_4 * noise p_4
     amplitude_5 = amplitude_4 * 0.5
-    p_5 = p_4 * vec3 2.0 2.0 1.0
+    p_5 = p_4 * vec3 2.0 2.0 2.0
 
     value_6 = value_5 + amplitude_5 * noise p_5
     amplitude_6 = amplitude_5 * 0.5
-    p_6 = p_5 * vec3 2.0 2.0 1.0
+    p_6 = p_5 * vec3 2.0 2.0 2.0
 
     value_7 = value_6 + amplitude_6 * noise p_6
     in value_7
 
+domain_warping p = let
+    q = vec3 (fbm p) (fbm (p + vec3 5.2 1.3 0.0)) p.z
+    r_1 = p + vec3 4.0 4.0 4.0 * q + vec3 1.7 9.2 0.0
+    r_2 = p + vec3 4.0 4.0 4.0 * q + vec3 8.3 2.8 0.0
+    r = vec3 (fbm r_1) (fbm r_2) p.z
+    in fbm (p + vec3 4.0 4.0 4.0 * r)
+
 kaleid st nSides = let
   offset = st - vec2 0.5 0.5
-  r = length st
-  a = atan st.x st.y
+  r = length offset
+  a = atan offset.x offset.y
   pi = 2.0 * 3.1416
   b = mod a (pi / nSides)
-  c = abs (a - pi / nSides / 2.0)
+  c = abs (b - pi / nSides / 2.0)
   d = vec2 r r * vec2 (cos c) (sin c)
   in d
 
-permute x = let
-    a = x * vec4 34.0 34.0 34.0 34.0
-    b = a + vec4 1.0 1.0 1.0 1.0
-    c = b * x
-    in mod c 289.0
+luminance rgb = let
+    w = vec3 0.2125 0.7154 0.0721
+    in dot rgb w
+          
+mask : Vec4 -> Vec4 -> Vec4
+mask c0 c1 = let
+    a = luminance c1.rgb
+    b = vec3 a a a * c0.rgb
+    in vec4 b.r b.g b.b a
 
-#hsb2rgb : Vec4 -> Vec4
-#hsb2rgb c = let
-  #red = c.x * 6.0 
-  #shift = vec3 red red red + vec3 0.0 4.0 2.0
-  #modulus = mod shift 6.0 
-  #unbound = abs (modulus - vec3 3.0 3.0 3.0) - vec3 1.0 1.0 1.0
-  #bound = clamp unbound 0.0 1.0
-  #rgb = bound * bound * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * bound)
-  #in vec3 c.z c.z c.z * mix (vec3 1.0 1.0 1.0) rgb c.y
+diff : Vec4 -> Vec4 -> Vec4
+diff c0 c1 = let
+    difference = c0.rgb - c1.rgb
+    absolute = abs difference
+    in vec4 absolute.r absolute.g absolute.b (max c0.a c1.a)
+
+osc : Vec2 -> Float -> Float -> Float -> Float -> Vec4
+osc st time freq sync offset = let
+    r = sin ((st.x - offset / freq + time * sync)*freq) * 0.5 + 0.5
+    g = sin ((st.x + time * sync) * freq) * 0.5 + 0.5
+    b = sin ((st.x + offset / freq + time * sync) * freq) * 0.5  + 0.5
+    color = vec4 r g b 1.0
+    in color

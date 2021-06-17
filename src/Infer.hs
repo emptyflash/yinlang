@@ -69,8 +69,9 @@ closeOver (sub, ty) = normalize sc
 initUnique :: Unique
 initUnique = Unique { count = 0 }
 
+-- TODO: this should return an error if the name already exists and isn't the same type
 extend :: TypeEnv -> (Var, Scheme) -> TypeEnv
-extend (TypeEnv env) (x, s) = TypeEnv $ Map.insert x s env
+extend (TypeEnv env) (x, s) = TypeEnv $ Map.insertWith (flip const) x s env 
 
 emptyTyenv :: TypeEnv
 emptyTyenv = TypeEnv Map.empty

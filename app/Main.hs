@@ -3,6 +3,7 @@ module Main where
 import Data.Bifunctor
 import System.Directory
 import System.Exit
+import System.IO
 
 import Type
 import Syntax
@@ -51,5 +52,5 @@ main = do
             putStrLn code
             exitSuccess
         err -> do
-            putStrLn $ show err
+            hPutStrLn stderr $ show err
             exitFailure

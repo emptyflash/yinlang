@@ -137,8 +137,8 @@ tyLit =
 
 scheme :: Parser T.Scheme
 scheme = do
-  type_ : rest <- sepBy1 tyLit $ L.reserved "->"
-  pure $ T.Forall [] $ foldl T.TArr (T.TCon type_) (map T.TCon rest)
+  types <- sepBy1 tyLit $ L.reserved "->"
+  pure $ T.Forall [] $ foldr T.TArr (T.TCon $ last types) (map T.TCon $ init types)
 
 typeAscription :: Parser Decl
 typeAscription = do

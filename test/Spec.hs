@@ -57,6 +57,16 @@ main = hspec $ do
             let res = typeof env "test"
             res `shouldBe` Just (Forall [] (TArr (TCon Vec2) (TCon Vec2)))
 
+        -- TODO this should just be an error
+        it "should ignore type of function if ascribed (for now)" $ do
+            let decls = [ ("test", TypeAscription (Forall [] (TArr (TCon Vec2) (TCon Vec2))))
+                        , ("test", Lam "n" (Var "n"))
+                        ]
+            let Right env = inferTop emptyTyenv decls
+            putStrLn $ show env
+            let res = typeof env "test"
+            res `shouldBe` Just (Forall [] (TArr (TCon Vec2) (TCon Vec2)))
+
         it "should typecheck std lib" $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
@@ -110,9 +120,9 @@ main = hspec $ do
             result `shouldBe` Right [("u_audio", ParameterDecl $ Uniform Vec4)]
             
         it "should parse type ascription" $ do
-            let expr = "test : Vec2 -> Vec2"
+            let expr = "test : Float -> Vec2 -> Vec3 -> Vec4"
             let result = P.parseModule "test" expr
-            result `shouldBe` Right [("test",TypeAscription (Forall [] (TArr (TCon Vec2) (TCon Vec2))))]
+            result `shouldBe` Right [("test",TypeAscription (Forall [] (TArr (TCon Float) (TArr (TCon Vec2) (TArr (TCon Vec3) (TCon Vec4))))))]
 
         it "should parse the std lib" $ do
             path <- makeAbsolute "std.yin"
@@ -144,6 +154,12 @@ main = hspec $ do
             let env = TypeEnv $ Map.fromList [ ("circle",Forall [] (TArr (TCon Vec2) (TArr (TCon Float) (TCon Float)))) ]
             let result = generateDecl env decl
             result `shouldBe` "float circle(vec2 st, float r) {\nreturn 1.0;\n}\n\n"
+
+        it "should generate functions with arbitrary parameters" $ do
+            let decl = ("func",Lam "a" (Lam "b" (Lam "c" (Lam "d" (Lit $ LFloat 1.0)))))
+            let env = TypeEnv $ Map.fromList [ ("func",Forall [] (TArr (TCon Vec2) (TArr (TCon Vec2) (TArr (TCon Vec2) (TArr (TCon Vec2) (TCon Float)))))) ]
+            let result = generateDecl env decl
+            result `shouldBe` "float func(vec2 a, vec2 b, vec2 c, vec2 d) {\nreturn 1.0;\n}\n\n"
 
         it "should generate uniform declartions" $ do
             let decl = ("u_audio", ParameterDecl $ Uniform Vec4)
