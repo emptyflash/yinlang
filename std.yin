@@ -19,7 +19,7 @@ box st size = let
 
 random x = fract (sin x * 10000.0)
 
-noise p = let
+noise_ p = let
     const_step = vec3 110.0 241.0 171.0
     i = floor p
     f = fract p
@@ -46,40 +46,56 @@ noise p = let
 
     in mix mix_y_1 mix_y_2 u.z
 
-fbm p = let
+noise : Vec2 -> Float -> Float -> Float -> Vec4
+noise st time scale offset = let
+    noised = noise_ (vec3 (st.x * scale) (st.y * scale) (offset * time))
+    color = vec4 noised noised noised 1.0
+    in color
+
+fbm_ p = let
     value_1 = 0.0
     amplitude_1 = 0.5
     frequency_1 = 0.0
 
-    value_2 = value_1 + amplitude_1 * noise p
+    value_2 = value_1 + amplitude_1 * noise_ p
     amplitude_2 = amplitude_1 * 0.5
     p_2 = p * vec3 2.0 2.0 2.0
 
-    value_3 = value_2 + amplitude_2 * noise p_2
+    value_3 = value_2 + amplitude_2 * noise_ p_2
     amplitude_3 = amplitude_2 * 0.5
     p_3 = p_2 * vec3 2.0 2.0 2.0
 
-    value_4 = value_3 + amplitude_3 * noise p_3
+    value_4 = value_3 + amplitude_3 * noise_ p_3
     amplitude_4 = amplitude_3 * 0.5
     p_4 = p_3 * vec3 2.0 2.0 2.0
 
-    value_5 = value_4 + amplitude_4 * noise p_4
+    value_5 = value_4 + amplitude_4 * noise_ p_4
     amplitude_5 = amplitude_4 * 0.5
     p_5 = p_4 * vec3 2.0 2.0 2.0
 
-    value_6 = value_5 + amplitude_5 * noise p_5
+    value_6 = value_5 + amplitude_5 * noise_ p_5
     amplitude_6 = amplitude_5 * 0.5
     p_6 = p_5 * vec3 2.0 2.0 2.0
 
-    value_7 = value_6 + amplitude_6 * noise p_6
+    value_7 = value_6 + amplitude_6 * noise_ p_6
     in value_7
 
-domain_warping p = let
-    q = vec3 (fbm p) (fbm (p + vec3 5.2 1.3 0.0)) p.z
+fbm : Vec2 -> Float -> Float -> Float -> Vec4
+fbm st time scale offset = let
+    moved = fbm_ (vec3 (st.x * scale) (st.y * scale) (offset * time))
+    in vec4 moved moved moved 1.0
+
+dw_ p = let
+    q = vec3 (fbm_ p) (fbm_ (p + vec3 5.2 1.3 0.0)) p.z
     r_1 = p + vec3 4.0 4.0 4.0 * q + vec3 1.7 9.2 0.0
     r_2 = p + vec3 4.0 4.0 4.0 * q + vec3 8.3 2.8 0.0
-    r = vec3 (fbm r_1) (fbm r_2) p.z
-    in fbm (p + vec3 4.0 4.0 4.0 * r)
+    r = vec3 (fbm_ r_1) (fbm_ r_2) p.z
+    in fbm_ (p + vec3 4.0 4.0 4.0 * r)
+
+dw : Vec2 -> Float -> Float -> Float -> Vec4
+dw st time scale offset = let
+    warped = dw_ (vec3 (st.x * scale) (st.y * scale) (offset * time))
+    in vec4 warped warped warped 1.0
 
 kaleid st nSides = let
   offset = st - vec2 0.5 0.5
@@ -114,3 +130,8 @@ osc st time freq sync offset = let
     b = sin ((st.x + offset / freq + time * sync) * freq) * 0.5  + 0.5
     color = vec4 r g b 1.0
     in color
+
+modulate : Vec2 -> Vec4 -> Float -> Vec2
+modulate st color amount = let
+    a = color.xy * vec2 amount amount
+    in st + a

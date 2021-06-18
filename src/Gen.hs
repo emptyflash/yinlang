@@ -17,7 +17,6 @@ generateGlslType ty = case ty of
     Mat2 -> "mat2"
     Mat3 -> "mat3"
     Mat4 -> "mat4"
-    GenType -> "genType"
 
 generateOp :: Binop -> String
 generateOp op = case op of
@@ -64,11 +63,9 @@ generateExpr env expr = case expr of
 getLastType :: Type -> GlslTypes
 getLastType (TArr _ x) = getLastType x
 getLastType (TCon x) = x
-getLastType (TVar _) = GenType
 
 glslType :: Type -> GlslTypes
 glslType (TCon x) = x
-glslType (TVar _) = GenType
 
 generateLam :: TypeEnv -> Expr -> Type -> String
 generateLam env (Lam var expr) (TArr ty (TCon _)) = let

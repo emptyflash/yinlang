@@ -25,7 +25,7 @@ renameMainType :: Infer.TypeEnv -> Infer.TypeEnv
 renameMainType (Infer.TypeEnv env) = Infer.TypeEnv $ renameMapKey "main" "userEntrypoint" env
 
 renameMain :: [Decl] -> [Decl]
-renameMain (("main", expr) : xs) = ("userEntrypoint", expr) : xs
+renameMain (("main", expr) : xs) = ("userEntrypoint", expr) : renameMain xs
 renameMain (x : xs) = x : renameMain xs
 renameMain [] = []
 
