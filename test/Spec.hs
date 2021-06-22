@@ -2,6 +2,7 @@ import Data.Bifunctor
 import System.Directory
 import Test.Hspec
 import qualified Data.Map as Map
+import Text.Megaparsec
 
 import qualified Parser as P
 
@@ -10,7 +11,6 @@ import Lexer
 import Infer
 import Type
 import Gen
-
 
 
 main :: IO ()
@@ -129,7 +129,7 @@ main = hspec $ do
             stdLib <- readFile path
             case P.parseModule "std.yin" stdLib of
                 Right a -> do { putStrLn $ show a; True `shouldBe` True }
-                Left err -> do { putStrLn $ show err; False `shouldBe` True }
+                Left err -> do { putStrLn $ errorBundlePretty err; False `shouldBe` True }
 
     describe "code generation" $ do
         

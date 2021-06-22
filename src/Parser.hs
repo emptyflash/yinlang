@@ -80,7 +80,7 @@ swizzle :: Parser Expr
 swizzle = do
   name <- L.identifier
   L.symbol "."
-  op <- L.identifier
+  op <- L.swizzleStr
   pure $ Swizzle name op
 
 aexp :: Parser Expr
@@ -134,6 +134,9 @@ tyLit =
   <|> L.symbol "Float" *> pure T.Float
   <|> L.symbol "Bool" *> pure T.Bool
   <|> L.symbol "Int" *> pure T.Int
+  <|> L.symbol "Sampler1D" *> pure T.Sampler1D
+  <|> L.symbol "Sampler2D" *> pure T.Sampler2D
+  <|> L.symbol "Sampler3D" *> pure T.Sampler3D
 
 scheme :: Parser T.Scheme
 scheme = do

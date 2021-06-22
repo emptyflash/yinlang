@@ -17,6 +17,9 @@ generateGlslType ty = case ty of
     Mat2 -> "mat2"
     Mat3 -> "mat3"
     Mat4 -> "mat4"
+    Sampler1D -> "sampler1D"
+    Sampler2D -> "sampler2D"
+    Sampler3D -> "sampler3D"
 
 generateOp :: Binop -> String
 generateOp op = case op of

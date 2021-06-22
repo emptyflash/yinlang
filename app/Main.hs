@@ -4,6 +4,7 @@ import Data.Bifunctor
 import System.Directory
 import System.Exit
 import System.IO
+import Text.Megaparsec
 
 import Type
 import Syntax
@@ -31,7 +32,7 @@ renameMain [] = []
 
 compileProgram :: String -> Either String String
 compileProgram prog = do
-    decls <- first show $ Parser.parseModule "<stdin>" prog
+    decls <- first errorBundlePretty $ Parser.parseModule "<stdin>" prog
     env <- first show $ Infer.inferTop Infer.glslStdLib decls
     newEnv <- case Infer.typeof env "main" of
         Just (Forall [] (TCon Vec2 `TArr` TCon Vec4)) -> Right $ renameMainType env

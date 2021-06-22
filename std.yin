@@ -52,32 +52,116 @@ noise st time scale offset = let
     color = vec4 noised noised noised 1.0
     in color
 
+permute x = let
+    a = vec2 34.0 1.0
+    c = (x * a.xxxx + a.yyyy) * x
+    in mod c 289.0
+
+taylor_inv_sqrt : Vec4 -> Vec4
+taylor_inv_sqrt r = let 
+    a = vec2 1.79284291400159 0.85373472095314
+    in a.xxxx - a.yyyy * r
+
+simplex_noise_ : Vec3 -> Float
+simplex_noise_ v = let
+    c = vec2 (1.0/6.0) (1.0/3.0)
+    d = vec4 0.0 0.5 1.0 2.0
+    e = vec3 1.0 2.0 3.0
+    f = vec4 49.0 7.0 0.6 (1.0 / 7.0)
+
+    # First corner
+    dot1 = dot v c.yyy
+    i = floor (v + vec3 dot1 dot1 dot1)
+    dot2 = dot i c.xxx
+    x0 = v - i + vec3 dot2 dot2 dot2
+
+    # Other corners
+    g = step x0.yzx x0.xyz
+    l = e.xxx - g
+    i1 = min g.xyz l.zxy
+    i2 = max g.xyz l.zxy
+
+    x1 = x0 - i1 + e.xxx * c.xxx
+    x2 = x0 - i2 + e.yyy * c.xxx
+    x3 = x0 - e.xxx + e.zzz * c.xxx
+
+    i3 = mod i 289.0
+    p = permute (permute (permute ( i3.zzzz + vec4 0.0 i1.z i2.z 1.0 ) + i3.yyyy + vec4 0.0 i1.y i2.y 1.0 ) + i3.xxxx + vec4 0.0 i1.x i2.x 1.0 )
+
+    # Gradients
+    # ( N*N points uniformly over a square, mapped onto an octahedron.)
+    ns = f.www * d.wyz - d.xzx
+
+    j_ = f.xxxx * floor (p * ns.zzzz * ns.zzzz)
+    j = p - j_
+
+    x_ = floor (j * ns.zzzz)
+    y_ = floor (j - f.yyyy * x_)
+
+    x = x_ * ns.xxxx + ns.yyyy
+    y = y_ * ns.xxxx + ns.yyyy
+    h = e.xxxx - abs x - abs y
+
+    b0 = vec4 x.x x.y y.x y.y
+    b1 = vec4 x.z x.w y.z y.w
+
+    s0 = floor b0 * e.yyyy + e.xxxx
+    s1 = floor b1 * e.yyyy + e.xxxx
+    sh = d.xxxx - step h d.xxxx # TODO implement negative instead of 0 minus
+
+    a0 = b0.xzyw + s0.xzyw * sh.xxyy
+    a1 = b1.xzyw + s1.xzyw * sh.zzww
+
+    p0_ = vec3 a0.x a0.y h.x
+    p1_ = vec3 a0.z a0.w h.y
+    p2_ = vec3 a1.x a1.y h.z
+    p3_ = vec3 a1.z a1.w h.w
+
+    # Normalise gradients
+    norm = taylor_inv_sqrt (vec4 (dot p0_ p0_) (dot p1_ p1_) (dot p2_ p2_) (dot p3_ p3_))
+    p0 = p0_ * norm.xxx
+    p1 = p1_ * norm.yyy
+    p2 = p2_ * norm.zzz
+    p3 = p3_ * norm.www
+    # Mix final noise value
+    m_ = max (f.zzzz - vec4 (dot x0 x0) (dot x1 x1) (dot x2 x2) (dot x3 x3)) d.xxxx
+    m = m_ * m_
+
+    final = 42.0 * dot (m*m) (vec4 (dot p0 x0) (dot p1 x1) (dot p2 x2) (dot p3 x3))
+    in final
+
+simplex_noise : Vec2 -> Float -> Float -> Float -> Vec4
+simplex_noise st time scale offset = let
+    noised = simplex_noise_ (vec3 (st.x * scale) (st.y * scale) (offset * time))
+    color = vec4 noised noised noised 1.0
+    in color
+
 fbm_ p = let
     value_1 = 0.0
     amplitude_1 = 0.5
     frequency_1 = 0.0
 
-    value_2 = value_1 + amplitude_1 * noise_ p
+    value_2 = value_1 + amplitude_1 * simplex_noise_ p
     amplitude_2 = amplitude_1 * 0.5
     p_2 = p * vec3 2.0 2.0 2.0
 
-    value_3 = value_2 + amplitude_2 * noise_ p_2
+    value_3 = value_2 + amplitude_2 * simplex_noise_ p_2
     amplitude_3 = amplitude_2 * 0.5
     p_3 = p_2 * vec3 2.0 2.0 2.0
 
-    value_4 = value_3 + amplitude_3 * noise_ p_3
+    value_4 = value_3 + amplitude_3 * simplex_noise_ p_3
     amplitude_4 = amplitude_3 * 0.5
     p_4 = p_3 * vec3 2.0 2.0 2.0
 
-    value_5 = value_4 + amplitude_4 * noise_ p_4
+    value_5 = value_4 + amplitude_4 * simplex_noise_ p_4
     amplitude_5 = amplitude_4 * 0.5
     p_5 = p_4 * vec3 2.0 2.0 2.0
 
-    value_6 = value_5 + amplitude_5 * noise_ p_5
+    value_6 = value_5 + amplitude_5 * simplex_noise_ p_5
     amplitude_6 = amplitude_5 * 0.5
     p_6 = p_5 * vec3 2.0 2.0 2.0
 
-    value_7 = value_6 + amplitude_6 * noise_ p_6
+    value_7 = value_6 + amplitude_6 * simplex_noise_ p_6
     in value_7
 
 fbm : Vec2 -> Float -> Float -> Float -> Vec4

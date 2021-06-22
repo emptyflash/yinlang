@@ -72,6 +72,8 @@ identifier = (lexeme . try) (p >>= check)
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
+swizzleStr :: Parser String
+swizzleStr = lexeme $ some $ oneOf ['x', 'y', 'z', 'w', 'r', 'g', 'b', 'a']
 
 discardNewline :: Parser ()
 discardNewline = option () (void eol)

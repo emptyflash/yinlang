@@ -13,6 +13,9 @@ data GlslTypes
   | Mat2
   | Mat3
   | Mat4
+  | Sampler1D
+  | Sampler2D
+  | Sampler3D
   deriving (Show, Eq, Ord)
 
 data Type
