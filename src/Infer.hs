@@ -39,6 +39,7 @@ glslStdLib = TypeEnv $ Map.fromList
     [ ("vec2", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Vec2)) 
     , ("vec3", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Vec3))
     , ("vec4", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Vec4))
+    , ("mat2", Forall [] (TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Float `TArr` TCon Mat2))
     , ("dot", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TCon Float))
     , ("smoothstep", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
     , ("step", Forall [TV "a"] (TVar (TV "a") `TArr` TVar (TV "a") `TArr` TVar (TV "a")))
@@ -222,7 +223,7 @@ infer env ex = case ex of
     inferPrim env [e1, e2] (ops tv op)
 
   Swizzle var sw -> do
-    -- TODO Actually check that the swizzle is valid for the type
+    -- TODO Actually check that the swizzle is valid for the type and the name exists
     return (nullSubst, swizzleType sw)
     
 

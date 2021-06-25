@@ -1,19 +1,17 @@
-# Basics
-circle st r = let
-  offset = st - vec2 0.5 0.5
-  delta = r * 0.1
-  dist = dot offset offset
-  result = smoothstep (r - delta) (r + delta) (dist * 5.0)
-  in 1.0 - result
+cast2 v = vec2 v v
+cast3 v = vec3 v v v
+cast4 v = vec4 v v v v
 
-box st size = let
-  s = vec2 0.5 0.5 - size * vec2 0.5 0.5
-  uv = smoothstep s (s + vec2 0.001 0.001) st
-  uv2 = uv * smoothstep s (s + vec2 0.001 0.001) (vec2 1.0 1.0 - st)
-  in uv2.x * uv2.y
 
-#rotate2d a = mat4 (cos a) (-sin a) (sin a) (cos a)
-
+shape : Vec2 -> Float -> Float -> Float -> Vec4
+shape st_ sides radius smoothing = let
+    st = st_ * cast2 2.0 - cast2 1.0
+    pi = 3.1416
+    a = atan st.x st.y + pi
+    r = (2.0 * pi) / sides
+    d = cos ((floor (0.5 + a / r) * r - a)) * length st
+    c = cast3 (1.0 - smoothstep radius (radius + smoothing) d)
+    in vec4 c.r c.g c.b 1.0
 
 # Randomness
 
@@ -207,6 +205,17 @@ diff c0 c1 = let
     absolute = abs difference
     in vec4 absolute.r absolute.g absolute.b (max c0.a c1.a)
 
+layer : Vec4 -> Vec4 -> Vec4
+layer c0 c1 = let
+    rgb = mix c0.rgb c1.rgb c1.a
+    in vec4 rgb.r rgb.g rgb.b (c0.a+c1.a)
+
+scale_coords st_ amount x y = let
+    st = st_ - cast2 0.5
+    xy_ = st * (cast2 1.0 / vec2 (amount * x) (amount * y))
+    xy = xy_ + cast2 0.5
+    in xy
+
 osc : Vec2 -> Float -> Float -> Float -> Float -> Vec4
 osc st time freq sync offset = let
     r = sin ((st.x - offset / freq + time * sync)*freq) * 0.5 + 0.5
@@ -219,3 +228,19 @@ modulate : Vec2 -> Vec4 -> Float -> Vec2
 modulate st color amount = let
     a = color.xy * vec2 amount amount
     in st + a
+
+# TODO why did the type checker choke so bad on this
+modulate_hue : Vec2 -> Vec2 -> Vec4 -> Float -> Vec2
+modulate_hue st resolution c1 amount = let
+    a = vec2 (c1.g - c1.r) (c1.b - c1.g) 
+    b = st + (a * (cast2 amount) * (cast2 1.0 / resolution))
+    in b
+
+src st_ tex = texture2D tex (fract st_)
+
+rotate st time angle speed = let
+    xy_ = st - cast2 0.5
+    a = angle + speed * time
+    x = dot xy_ (vec2 (cos angle) (0.0 - sin angle)) 
+    y = dot xy_ (vec2 (sin angle) (cos angle))
+    in vec2 x y + cast2 0.5
