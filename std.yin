@@ -199,6 +199,15 @@ mask c0 c1 = let
     b = vec3 a a a * c0.rgb
     in vec4 b.r b.g b.b a
 
+add : Vec4 -> Vec4 -> Float -> Vec4
+add c0 c1 amount = (c0 + c1) * cast4 amount + c0 * cast4 (1.0 - amount)
+
+blend : Vec4 -> Vec4 -> Float -> Vec4
+blend c0 c1 amount = c0 * cast4 (1.0 - amount) + c1 * cast4 amount
+
+mult : Vec4 -> Vec4 -> Float -> Vec4
+mult c0 c1 amount = c0 * cast4 (1.0 - amount) + c1 * cast4 amount
+
 diff : Vec4 -> Vec4 -> Vec4
 diff c0 c1 = let
     difference = c0.rgb - c1.rgb
@@ -226,7 +235,7 @@ osc st time freq sync offset = let
 
 modulate : Vec2 -> Vec4 -> Float -> Vec2
 modulate st color amount = let
-    a = color.xy * vec2 amount amount
+    a = color.xy * cast2 amount
     in st + a
 
 # TODO why did the type checker choke so bad on this
