@@ -1,9 +1,17 @@
 module Gen where
 
+import Text.Megaparsec
+
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+
+import Data.List.NonEmpty as NonEmpty
+import Data.Bifunctor
 import Debug.Trace
 import Infer
 import Syntax
 import Type
+import qualified Parser as Parser
 
 
 generateGlslType :: GlslTypes -> String
@@ -39,12 +47,12 @@ generateLet env ((var, expr):xs) inExpr state = let
   in generateLet newEnv xs inExpr newState
 
 generateApp :: TypeEnv -> Expr -> Expr -> String
-generateApp env (Var fn) expr = fn ++ "(" ++ generateExpr env expr
+generateApp env (Var fn _ _) expr = fn ++ "(" ++ generateExpr env expr
 generateApp env (App a1 a2) expr = generateApp env a1 a2 ++ ", " ++ generateExpr env expr
 
 generateExpr :: TypeEnv -> Expr -> String
 generateExpr env expr = case expr of
-  Var x -> x
+  Var x _ _ -> x
 
   Let decls expr -> generateLet env decls expr ""
 
@@ -91,3 +99,52 @@ generateDecl env (var, lam@(Lam _ _)) = case typeof env var of
     Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
     a -> show a
 generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr
+
+
+instance ShowErrorComponent Infer.TypeError where
+    showErrorComponent (Infer.UnboundVariable var _ _) = "Variable " ++ var ++ " is unbound"
+    showErrorComponent err = show err
+
+    errorComponentLen (Infer.UnboundVariable _ start end) = end - start
+    errorComponentLen _ = 0
+
+renameMapKey :: Ord a => a -> a -> Map.Map a b -> Map.Map a b
+renameMapKey old new m =
+    case Map.lookup old m of
+        Nothing -> m
+        Just v -> Map.insert new v $ Map.delete old m
+
+renameMainType :: Infer.TypeEnv -> Infer.TypeEnv
+renameMainType (Infer.TypeEnv env) = Infer.TypeEnv $ renameMapKey "main" "userEntrypoint" env
+
+renameMain :: [Decl] -> [Decl]
+renameMain (("main", expr) : xs) = ("userEntrypoint", expr) : renameMain xs
+renameMain (x : xs) = x : renameMain xs
+renameMain [] = []
+
+compileProgram :: String -> Either String String
+compileProgram prog = do
+    decls <- first errorBundlePretty $ Parser.parseModule "<stdin>" prog
+    env <- case Infer.inferTop Infer.glslStdLib decls of
+        Left err@(Infer.UnboundVariable var start _) -> let 
+            initialState = PosState
+                  { pstateInput = prog
+                  , pstateOffset = 0
+                  , pstateSourcePos = initialPos ""
+                  , pstateTabWidth = defaultTabWidth
+                  , pstateLinePrefix = ""
+                  }
+            errorBundle = ParseErrorBundle
+                  { bundleErrors = NonEmpty.fromList [FancyError start $ Set.fromList [ErrorCustom err]]
+                                -- ^ A collection of 'ParseError's that is sorted by parse error offsets
+                  , bundlePosState = initialState
+                                -- ^ State that is used for line\/column calculation
+                  }
+            in Left $ errorBundlePretty errorBundle
+        res -> first show $ res
+    newEnv <- case Infer.typeof env "main" of
+        Just (Forall [] (TCon Vec2 `TArr` TCon Vec4)) -> Right $ renameMainType env
+        Just scheme -> Left $ "Missing main function with correct type. Expected: Vec2 -> Vec4, Found: " ++ show scheme
+    let newDecls = renameMain decls
+    let code = newDecls >>= Gen.generateDecl newEnv 
+    pure $ code ++ "\n\nvoid main() { gl_FragColor = userEntrypoint(gl_FragCoord.xy); }"

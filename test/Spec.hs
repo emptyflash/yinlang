@@ -28,7 +28,7 @@ main = hspec $ do
 
         it "should infer let exprs" $ do
             let expr = (Let [ ("a", Lit $ LInt 1)
-                            , ("b", Var "a")] (Var "b"))
+                            , ("b", Var "a" 0 0)] (Var "b" 0 0))
             let res = inferExpr mempty expr
             res `shouldBe` Right (Forall [] typeInt)
 
@@ -36,15 +36,15 @@ main = hspec $ do
             let expr = Let [ ("b", Lit $ LInt 2)
                            , ("c", Lit $ LInt 3)
                            , ("a", If (Lit $ LBool True) 
-                                     (Op Sub (Var "b") (Var "b")) 
-                                     (Op Add (Var "c") (Var "c")))
+                                     (Op Sub (Var "b" 0 0) (Var "b" 0 0)) 
+                                     (Op Add (Var "c" 0 0) (Var "c" 0 0)))
                            ]
-                        (Op Mul (Var "a") (Var "c"))
+                        (Op Mul (Var "a" 0 0) (Var "c" 0 0))
             let res = inferExpr mempty expr
             res `shouldBe` Right (Forall [] typeInt)
 
         it "Handle uniform declartions" $ do
-            let decls = [("u_audio", ParameterDecl $ Uniform Vec4), ("test", (Var "u_audio"))]
+            let decls = [("u_audio", ParameterDecl $ Uniform Vec4), ("test", (Var "u_audio" 0 0))]
             let Right env = inferTop emptyTyenv decls
             putStrLn $ show env
             let res = typeof env "test"
@@ -60,7 +60,7 @@ main = hspec $ do
         -- TODO this should just be an error
         it "should ignore type of function if ascribed (for now)" $ do
             let decls = [ ("test", TypeAscription (Forall [] (TArr (TCon Vec2) (TCon Vec2))))
-                        , ("test", Lam "n" (Var "n"))
+                        , ("test", Lam "n" (Var "n" 0 0))
                         ]
             let Right env = inferTop emptyTyenv decls
             putStrLn $ show env
@@ -96,23 +96,23 @@ main = hspec $ do
         it "should parse nested application" $ do
             let expr = "a 1 1"
             let result = P.parseExpr expr
-            result `shouldBe` Right (App (App (Var "a") (Lit $ LInt 1)) (Lit $ LInt 1))
+            result `shouldBe` Right (App (App (Var "a" 0 2) (Lit $ LInt 1)) (Lit $ LInt 1))
 
         it "should parse simple let expr" $ do
             let expr = "let a = 1 in a"
             let result = P.parseExpr expr
-            result `shouldBe` Right (Let [("a", Lit $ LInt 1)] (Var "a"))
+            result `shouldBe` Right (Let [("a", Lit $ LInt 1)] (Var "a" 13 14))
 
         it "should parse multi let expr" $ do
             let expr = "let\na = 1\n\nb = 2\n\nin \na"
             let result = P.parseExpr expr
             result `shouldBe` Right (Let [("a", Lit $ LInt 1),
-                                          ("b", Lit $ LInt 2)] (Var "a"))
+                                          ("b", Lit $ LInt 2)] (Var "a" 22 23))
 
         it "should parse complex exprs" $ do
             let expr = "let a = if true then b - b else c + c in a * c"
             let result = P.parseExpr expr
-            result `shouldBe` Right (Let [("a", If (Lit $ LBool True) (Op Sub (Var "b") (Var "b")) (Op Add (Var "c") (Var "c")))] (Op Mul (Var "a") (Var "c")))
+            result `shouldBe` Right (Let [("a", If (Lit $ LBool True) (Op Sub (Var "b" 21 23) (Var "b" 25 27)) (Op Add (Var "c" 32 34) (Var "c" 36 38)))] (Op Mul (Var "a" 41 43) (Var "c" 45 46)))
 
         it "should parse uniform declartions" $ do
             let expr = "uniform u_audio : Vec4"
@@ -135,17 +135,17 @@ main = hspec $ do
         
         it "should generate simple let expr" $ do
             let expr = (Let [ ("a", Lit $ LInt 1)
-                            , ("b", Var "a")] (Var "b"))
+                            , ("b", Var "a" 0 0)] (Var "b" 0 0))
             let result = generateExpr glslStdLib expr
             result `shouldBe` "int a = 1;\nint b = a;\nreturn b;\n"
 
         it "should generate single application" $ do
-            let expr = App (Var "func") (Lit (LFloat 0.5))
+            let expr = App (Var "func" 0 0) (Lit (LFloat 0.5))
             let result = generateExpr glslStdLib expr
             result `shouldBe` "func(0.5)"
 
         it "should generate triple application" $ do
-            let expr = App (App (App (Var "vec3") (Lit (LFloat 0.5))) (Lit (LFloat 0.5))) (Lit (LFloat 0.5))
+            let expr = App (App (App (Var "vec3" 0 0) (Lit (LFloat 0.5))) (Lit (LFloat 0.5))) (Lit (LFloat 0.5))
             let result = generateExpr glslStdLib expr
             result `shouldBe` "vec3(0.5, 0.5, 0.5)"
 
@@ -182,3 +182,11 @@ main = hspec $ do
             let result = decls >>= generateDecl env
             putStrLn result
             True `shouldBe` True
+
+    describe "main" $ do
+        describe "compileProgram" $ do
+            it "should pretty print unbound variable" $ do
+                let program = "main coord = let a = b in a"
+                let Left res = compileProgram program
+                putStrLn res
+                res `shouldBe` "1:22:\n  |\n1 | main coord = let a = b in a\n  |                      ^^\nVariable \"b\" is unbound\n"

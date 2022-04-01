@@ -30,8 +30,8 @@ type Subst = Map.Map TVar Type
 data TypeError
   = UnificationFail Type Type
   | InfiniteType TVar Type
-  | UnboundVariable String
-  deriving (Show, Eq)
+  | UnboundVariable String Offset Offset
+  deriving (Show, Eq, Ord)
 
 
 glslStdLib :: TypeEnv
@@ -162,10 +162,10 @@ ops tv Sub = tv `TArr` tv `TArr` tv
 ops tv Div = tv `TArr` tv `TArr` tv
 ops tv Eql = tv `TArr` tv `TArr` typeBool
 
-lookupEnv :: TypeEnv -> Var -> Infer (Subst, Type)
-lookupEnv (TypeEnv env) x =
+lookupEnv :: TypeEnv -> (Var, Offset, Offset) -> Infer (Subst, Type)
+lookupEnv (TypeEnv env) (x, start, end) =
   case Map.lookup x env of
-    Nothing -> throwError $ UnboundVariable (show x)
+    Nothing -> throwError $ UnboundVariable (show x) start end
     Just s  -> do t <- instantiate s
                   return (nullSubst, t)
 
@@ -194,7 +194,7 @@ swizzleType sw = case length sw of
 infer :: TypeEnv -> Expr -> Infer (Subst, Type)
 infer env ex = case ex of
 
-  Var x -> lookupEnv env x
+  Var x start end -> lookupEnv env (x, start, end)
 
   Lam x e -> do
     tv <- fresh

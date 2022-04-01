@@ -23,8 +23,10 @@ type StringError = ParseErrorBundle String Void
 
 variable :: Parser Expr
 variable = do
+  start <- getOffset
   x <- L.identifier
-  return (Var x)
+  end <- getOffset
+  return (Var x start end)
 
 int :: Parser Expr
 int = do

@@ -5,8 +5,10 @@ import qualified Type as T
 type Var = String
 type Decl = (Var, Expr)
 
+type Offset = Int
+
 data Expr
-  = Var Var
+  = Var Var Offset Offset
   | App Expr Expr
   | Lam Var Expr
   | Let [Decl] Expr
