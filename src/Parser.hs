@@ -44,11 +44,13 @@ bool = (L.reserved "true" >> return (Lit (LBool True)))
 
 lambda :: Parser Expr
 lambda = do
+  start <- getOffset
   L.reserved "\\"
   args <- many L.identifier
   L.reserved "->"
   body <- expr
-  return $ foldr Lam body args
+  end <- getOffset
+  return $ foldr (\v x -> Lam v x start end) body args
 
 letdecl :: Parser Decl
 letdecl = do
@@ -70,13 +72,15 @@ letin = do
 
 ifthen :: Parser Expr
 ifthen = do
+  start <- getOffset
   L.reserved "if"
   cond <- expr
   L.reserved "then"
   tr <- expr
   L.reserved "else"
   fl <- expr
-  return (If cond tr fl)
+  end <- getOffset
+  return (If cond tr fl start end)
 
 swizzle :: Parser Expr
 swizzle = do
@@ -98,32 +102,44 @@ aexp =
   <|> variable
 
 term :: Parser Expr
-term = aexp >>= \x ->
-                try (many aexp >>= \xs -> return (foldl App x xs))
-                <|> return x
+term = do
+    start <- getOffset
+    x <- aexp
+    let maybeApp = do xs <- many aexp 
+                      end <- getOffset
+                      return $ foldl (\x1 x2 -> App x1 x2 start end) x xs
+    try maybeApp <|> return x
 
 table :: [[Operator Parser Expr]]
 table = 
-    [ [ InfixL (Op Mul <$ L.symbol "*")
-      , InfixL (Op Div <$ L.symbol "/")
+    [ [ InfixL $ operatorOffset "*" Mul
+      , InfixL $ operatorOffset "/" Div
       ]
-    , [ InfixL (Op Add <$ L.symbol "+")
-      , InfixL (Op Sub <$ L.symbol "-")
+    , [ InfixL $ operatorOffset "+" Add
+      , InfixL $ operatorOffset "-" Sub
       ]
-    , [ InfixL (Op Eql <$ L.symbol "==")
+    , [ InfixL $ operatorOffset "==" Eql
       ]
     ]
+    where 
+    operatorOffset symbol binop = do
+        start <- getOffset
+        L.symbol symbol
+        end <- getOffset
+        return $ \e1 e2 -> Op binop e1 e2 start end
 
 expr :: Parser Expr
 expr = makeExprParser term table
 
 fundecl :: Parser Decl
 fundecl = do
+  start <- getOffset
   name <- L.identifier
   args <- many L.identifier
   L.reserved "="
   body <-  expr
-  return $ (name, foldr Lam body args)
+  end <- getOffset
+  return $ (name, foldr (\v x -> Lam v x start end) body args)
 
 tyLit :: Parser T.GlslTypes
 tyLit = 

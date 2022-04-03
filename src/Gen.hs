@@ -48,7 +48,7 @@ generateLet env ((var, expr):xs) inExpr state = let
 
 generateApp :: TypeEnv -> Expr -> Expr -> String
 generateApp env (Var fn _ _) expr = fn ++ "(" ++ generateExpr env expr
-generateApp env (App a1 a2) expr = generateApp env a1 a2 ++ ", " ++ generateExpr env expr
+generateApp env (App a1 a2 _ _) expr = generateApp env a1 a2 ++ ", " ++ generateExpr env expr
 
 generateExpr :: TypeEnv -> Expr -> String
 generateExpr env expr = case expr of
@@ -63,11 +63,11 @@ generateExpr env expr = case expr of
 
     LFloat float -> show float
 
-  App e1 e2 -> generateApp env e1 e2 ++ ")"
+  App e1 e2 _ _ -> generateApp env e1 e2 ++ ")"
 
-  If e1 e2 e3 -> generateExpr env e1 ++ " ? " ++ generateExpr env e2 ++ " : " ++ generateExpr env e3
+  If e1 e2 e3 _ _ -> generateExpr env e1 ++ " ? " ++ generateExpr env e2 ++ " : " ++ generateExpr env e3
 
-  Op op e1 e2 -> "(" ++ generateExpr env e1 ++ generateOp op ++ generateExpr env e2 ++ ")"
+  Op op e1 e2 _ _ -> "(" ++ generateExpr env e1 ++ generateOp op ++ generateExpr env e2 ++ ")"
 
   Swizzle v1 v2 -> v1 ++ "." ++ v2
 
@@ -79,7 +79,7 @@ glslType :: Type -> GlslTypes
 glslType (TCon x) = x
 
 generateLam :: TypeEnv -> Expr -> Type -> String
-generateLam env (Lam var expr) (TArr ty (TCon _)) = let
+generateLam env (Lam var expr _ _) (TArr ty (TCon _)) = let
     glslTy = glslType ty
     newEnv = extend env (var, (Forall [] (TCon glslTy)))
     signature = generateGlslType glslTy ++ " " ++ var ++ ") {\n"
@@ -87,7 +87,7 @@ generateLam env (Lam var expr) (TArr ty (TCon _)) = let
         expr@(Let _ _) -> generateExpr newEnv expr
         expr -> "return " ++ generateExpr newEnv expr ++ ";\n"
     in signature ++ body ++ "}\n\n"
-generateLam env (Lam var expr@(Lam _ _)) (TArr ty1 ty2) = let
+generateLam env (Lam var expr@(Lam _ _ _ _) _ _) (TArr ty1 ty2) = let
     glslTy =  glslType ty1
     newEnv = extend env (var, (Forall [] (TCon glslTy)))
     in generateGlslType glslTy ++ " " ++ var ++ ", " ++ generateLam newEnv expr ty2
@@ -95,7 +95,7 @@ generateLam env (Lam var expr@(Lam _ _)) (TArr ty1 ty2) = let
 generateDecl :: TypeEnv -> Decl -> String
 generateDecl env (_, TypeAscription _) = ""
 generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
-generateDecl env (var, lam@(Lam _ _)) = case typeof env var of
+generateDecl env (var, lam@(Lam _ _ _ _)) = case typeof env var of
     Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
     a -> show a
 generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr
@@ -103,9 +103,11 @@ generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr
 
 instance ShowErrorComponent Infer.TypeError where
     showErrorComponent (Infer.UnboundVariable var _ _) = "Variable " ++ var ++ " is unbound"
+    showErrorComponent (Infer.UnificationFail t1 t2 _ _) = "Type mismatch: expected " ++ show t1 ++ " but found " ++ show t2
     showErrorComponent err = show err
 
     errorComponentLen (Infer.UnboundVariable _ start end) = end - start
+    errorComponentLen (Infer.UnificationFail _ _ start end) = end - start
     errorComponentLen _ = 0
 
 renameMapKey :: Ord a => a -> a -> Map.Map a b -> Map.Map a b
@@ -126,7 +128,11 @@ compileProgram :: String -> Either String String
 compileProgram prog = do
     decls <- first errorBundlePretty $ Parser.parseModule "<stdin>" prog
     env <- case Infer.inferTop Infer.glslStdLib decls of
-        Left err@(Infer.UnboundVariable var start _) -> let 
+        Left err -> let 
+            start = case err of
+                Infer.UnboundVariable _ start _ -> start
+                Infer.UnificationFail _ _ start _ -> start
+
             initialState = PosState
                   { pstateInput = prog
                   , pstateOffset = 0

@@ -22,7 +22,12 @@ data Type
   = TVar TVar
   | TCon GlslTypes
   | TArr Type Type
-  deriving (Show, Eq, Ord)
+  deriving (Eq, Ord)
+
+instance Show Type where
+    show (TVar (TV var)) = "type variable " ++ var
+    show (TCon ty) = show ty
+    show (TArr t1 t2) = show t1 ++ " -> " ++ show t2
 
 infixr `TArr`
 

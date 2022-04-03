@@ -28,7 +28,7 @@ type Infer = ExceptT TypeError (State Unique)
 type Subst = Map.Map TVar Type
 
 data TypeError
-  = UnificationFail Type Type
+  = UnificationFail Type Type Offset Offset
   | InfiniteType TVar Type
   | UnboundVariable String Offset Offset
   deriving (Show, Eq, Ord)
@@ -61,13 +61,13 @@ glslStdLib = TypeEnv $ Map.fromList
     ]
 
 
-runInfer :: Infer (Subst, Type) -> Either TypeError Scheme
+runInfer :: Infer (Subst, Type, Offsets) -> Either TypeError Scheme
 runInfer m = case evalState (runExceptT m) initUnique of
   Left err  -> Left err
   Right res -> Right $ closeOver res
 
-closeOver :: (Map.Map TVar Type, Type) -> Scheme
-closeOver (sub, ty) = normalize sc
+closeOver :: (Subst, Type, Offsets) -> Scheme
+closeOver (sub, ty, _) = normalize sc
   where sc = generalize emptyTyenv (apply sub ty)
 
 initUnique :: Unique
@@ -116,16 +116,16 @@ nullSubst = Map.empty
 compose :: Subst -> Subst -> Subst
 s1 `compose` s2 = Map.map (apply s1) s2 `Map.union` s1
 
-unify ::  Type -> Type -> Infer Subst
-unify (l `TArr` r) (l' `TArr` r')  = do
-  s1 <- unify l l'
-  s2 <- unify (apply s1 r) (apply s1 r')
+unify ::  Type -> Type -> (Offset, Offset) -> Infer Subst
+unify (l `TArr` r) (l' `TArr` r') offsets  = do
+  s1 <- unify l l' offsets
+  s2 <- unify (apply s1 r) (apply s1 r') offsets
   return (s2 `compose` s1)
 
-unify (TVar a) t = bind a t
-unify t (TVar a) = bind a t
-unify (TCon a) (TCon b) | a == b = return nullSubst
-unify t1 t2 = throwError $ UnificationFail t1 t2
+unify (TVar a) t _ = bind a t
+unify t (TVar a) _ = bind a t
+unify (TCon a) (TCon b) _ | a == b = return nullSubst
+unify t1 t2 (s, e) = throwError $ UnificationFail t1 t2 s e
 
 bind ::  TVar -> Type -> Infer Subst
 bind a t
@@ -162,16 +162,16 @@ ops tv Sub = tv `TArr` tv `TArr` tv
 ops tv Div = tv `TArr` tv `TArr` tv
 ops tv Eql = tv `TArr` tv `TArr` typeBool
 
-lookupEnv :: TypeEnv -> (Var, Offset, Offset) -> Infer (Subst, Type)
-lookupEnv (TypeEnv env) (x, start, end) =
+lookupEnv :: TypeEnv -> Var -> Offsets -> Infer (Subst, Type, Offsets)
+lookupEnv (TypeEnv env) x (start, end) =
   case Map.lookup x env of
     Nothing -> throwError $ UnboundVariable (show x) start end
     Just s  -> do t <- instantiate s
-                  return (nullSubst, t)
+                  return (nullSubst, t, (start, end))
 
 extendDecl :: TypeEnv -> Decl -> Infer (Subst, TypeEnv)
 extendDecl env (name, e) = do
-  (s, t) <- infer env e
+  (s, t, _) <- infer env e
   let env' = apply s env
       t'   = generalize env' t
   pure $ (s, env' `extend` (name, t'))
@@ -191,56 +191,57 @@ swizzleType sw = case length sw of
     3 -> TCon Vec3
     4 -> TCon Vec4
 
-infer :: TypeEnv -> Expr -> Infer (Subst, Type)
+infer :: TypeEnv -> Expr -> Infer (Subst, Type, Offsets)
 infer env ex = case ex of
 
-  Var x start end -> lookupEnv env (x, start, end)
+  Var x start end -> lookupEnv env x (start, end)
 
-  Lam x e -> do
+  Lam x e _ _-> do
     tv <- fresh
     let env' = env `extend` (x, Forall [] tv)
-    (s1, t1) <- infer env' e
-    return (s1, apply s1 tv `TArr` t1)
+    (s1, t1, _) <- infer env' e
+    return (s1, apply s1 tv `TArr` t1, offsetsFromExpr ex)
 
-  App e1 e2 -> do
+  App e1 e2 start end -> do
     tv <- fresh
-    (s1, t1) <- infer env e1
-    (s2, t2) <- infer (apply s1 env) e2
-    s3       <- unify (apply s2 t1) (TArr t2 tv)
-    return (s3 `compose` s2 `compose` s1, apply s3 tv)
+    (s1, t1, _) <- infer env e1
+    (s2, t2, _) <- infer (apply s1 env) e2
+    s3       <- unify (apply s2 t1) (TArr t2 tv) (start, end)
+    return (s3 `compose` s2 `compose` s1, apply s3 tv, offsetsFromExpr ex)
 
   Let decls e2 -> do
     (s1, env') <- extendDecls env decls
-    (s2, t2) <- infer env' e2
-    return (s2 `compose` s1, t2)
+    (s2, t2, _) <- infer env' e2
+    return (s2 `compose` s1, t2, offsetsFromExpr ex)
 
-  If cond tr fl -> do
+  If cond tr fl _ _ -> do
     tv <- fresh
     inferPrim env [cond, tr, fl] (typeBool `TArr` tv `TArr` tv `TArr` tv)
 
-  Op op e1 e2 -> do
+  Op op e1 e2 _ _ -> do
     tv <- fresh
     inferPrim env [e1, e2] (ops tv op)
 
   Swizzle var sw -> do
     -- TODO Actually check that the swizzle is valid for the type and the name exists
-    return (nullSubst, swizzleType sw)
+    -- Maybe use inferPrim?
+    return (nullSubst, swizzleType sw, offsetsFromExpr ex)
     
 
-  Lit (LInt _)  -> return (nullSubst, typeInt)
-  Lit (LBool _) -> return (nullSubst, typeBool)
-  Lit (LFloat _) -> return (nullSubst, typeFloat)
+  Lit (LInt _)  -> return (nullSubst, typeInt, offsetsFromExpr ex)
+  Lit (LBool _) -> return (nullSubst, typeBool, offsetsFromExpr ex)
+  Lit (LFloat _) -> return (nullSubst, typeFloat, offsetsFromExpr ex)
 
-inferPrim :: TypeEnv -> [Expr] -> Type -> Infer (Subst, Type)
+inferPrim :: TypeEnv -> [Expr] -> Type -> Infer (Subst, Type, Offsets)
 inferPrim env l t = do
   tv <- fresh
-  (s1, tf) <- foldM inferStep (nullSubst, id) l
-  s2 <- unify (apply s1 (tf tv)) t
-  return (s2 `compose` s1, apply s2 tv)
+  (s1, tf, o) <- foldM inferStep (nullSubst, id, (0, 0)) l
+  s2 <- unify (apply s1 (tf tv)) t o
+  return (s2 `compose` s1, apply s2 tv, o)
   where
-  inferStep (s, tf) exp = do
-    (s', t) <- infer (apply s env) exp
-    return (s' `compose` s, tf . (TArr t))
+  inferStep (s, tf, _) exp = do
+    (s', t, o) <- infer (apply s env) exp
+    return (s' `compose` s, tf . (TArr t), o)
 
 inferExpr :: TypeEnv -> Expr -> Either TypeError Scheme
 inferExpr env = runInfer . infer env
