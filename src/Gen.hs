@@ -124,29 +124,32 @@ renameMain (("main", expr) : xs) = ("userEntrypoint", expr) : renameMain xs
 renameMain (x : xs) = x : renameMain xs
 renameMain [] = []
 
+prettyShowErr prog err = let
+    start = case err of
+        Infer.UnboundVariable _ start _ -> start
+        Infer.UnificationFail _ _ start _ -> start
+
+    initialState = PosState
+          { pstateInput = prog
+          , pstateOffset = 0
+          , pstateSourcePos = initialPos ""
+          , pstateTabWidth = defaultTabWidth
+          , pstateLinePrefix = ""
+          }
+    errorBundle = ParseErrorBundle
+          { bundleErrors = NonEmpty.fromList [FancyError start $ Set.fromList [ErrorCustom err]]
+                        -- ^ A collection of 'ParseError's that is sorted by parse error offsets
+          , bundlePosState = initialState
+                        -- ^ State that is used for line\/column calculation
+          }
+    in errorBundlePretty errorBundle
+
 compileProgram :: String -> Either String String
 compileProgram prog = do
     decls <- first errorBundlePretty $ Parser.parseModule "<stdin>" prog
     env <- case Infer.inferTop Infer.glslStdLib decls of
         Left err -> let 
-            start = case err of
-                Infer.UnboundVariable _ start _ -> start
-                Infer.UnificationFail _ _ start _ -> start
-
-            initialState = PosState
-                  { pstateInput = prog
-                  , pstateOffset = 0
-                  , pstateSourcePos = initialPos ""
-                  , pstateTabWidth = defaultTabWidth
-                  , pstateLinePrefix = ""
-                  }
-            errorBundle = ParseErrorBundle
-                  { bundleErrors = NonEmpty.fromList [FancyError start $ Set.fromList [ErrorCustom err]]
-                                -- ^ A collection of 'ParseError's that is sorted by parse error offsets
-                  , bundlePosState = initialState
-                                -- ^ State that is used for line\/column calculation
-                  }
-            in Left $ errorBundlePretty errorBundle
+            in Left $ prettyShowErr prog err
         res -> first show $ res
     newEnv <- case Infer.typeof env "main" of
         Just (Forall [] (TCon Vec2 `TArr` TCon Vec4)) -> Right $ renameMainType env

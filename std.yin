@@ -44,15 +44,19 @@ noise_ p = let
 
     in mix mix_y_1 mix_y_2 u.z
 
-#hash p = let
-    #p1 = vec3 (dot p (vec3 127.1 311.7 74.7)) (dot p (vec3 269.5 183.3 246.1)) (dot p (vec3 113.5 271.9 124.6))
-    #in (cast3 -1.0) + (cast3 2.0) * fract (sin p * 43758.5453123)
+hash : Vec3 -> Vec3
+hash p = let
+    p1 = vec3 (dot (cast3 p) (vec3 127.1 311.7 74.7)) (dot (cast3 p) (vec3 269.5 183.3 246.1)) (dot (cast3 p) (vec3 113.5 271.9 124.6))
+    in (cast3 (0.0 - 1.0)) + (cast3 2.0) * fract (sin p1 * cast3 43758.5453123)
 
+gnoise_ : Vec3 -> Vec4
 gnoise_ x = let
     p = floor x
     w = fract x
 
-    u = w * w * w * (w * (w * 6.0 - 15.0) + 10.0)
+    u = w * w * w * (w * (w * cast3 6.0 - cast3 15.0) + cast3 10.0)
+    du = cast3 30.0 * w * w (w * (w - cast3 2.0) + cast3 1.0)
+    ga = hash (i + vec3 0.0 0.0 0.0)
     in u
 
 noise : Vec2 -> Float -> Float -> Float -> Vec4

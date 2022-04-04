@@ -52,6 +52,7 @@ lexeme = L.lexeme spaceConsumer
 symbol :: String -> Parser String
 symbol = L.symbol spaceConsumer
 
+-- TODO: figure out negative parsing
 integer :: Parser Integer
 integer = lexeme L.decimal
 

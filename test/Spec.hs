@@ -78,10 +78,10 @@ main = hspec $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
             let exprs = first show $ P.parseModule "std.yin" $ stdLib 
-            let res = exprs >>= (first show . inferTop glslStdLib )
+            let res = exprs >>= (first (Gen.prettyShowErr stdLib) . inferTop glslStdLib )
             case res of
                 Right env -> do { putStrLn $ show env; True `shouldBe` True }
-                Left err -> do { putStrLn $ show err; False `shouldBe` True }
+                Left err -> do { putStrLn err; False `shouldBe` True }
 
 
     describe "parser" $ do
