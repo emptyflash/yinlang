@@ -11,6 +11,13 @@ packages:
       sha256: 955117c00a86970f2d0c215f33cf5293b16589c04678a0a790c03368ab6fd0aa
   original:
     hackage: megaparsec-8.0.0
+- completed:
+    hackage: file-embed-0.0.15.0@sha256:18beed8999dff37bcffd0d1d8a59dcd406be8e517c10213afefc941091985c06,1426
+    pantry-tree:
+      size: 478
+      sha256: 19e38c295f02ea4cf3891ccb8048ed10d426b937bb14215f64aadc0cd62bda72
+  original:
+    hackage: file-embed-0.0.15.0
 snapshots:
 - completed:
     size: 533252

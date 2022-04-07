@@ -15,7 +15,22 @@ shape st_ sides radius smoothing = let
 
 # Randomness
 
-random x = fract (sin x * 43758.5453123)
+random p = let
+    p1 = fract (p * 0.011)
+    p2 = p1 * 7.5
+    p3 = p2 * (p2 + p2)
+    in fract p3
+
+hash2 : Vec2 -> Vec2
+hash2 p0 = let
+    p1 = fract (p0.xyx * cast3 0.14)
+    p2 = p1 + cast3 (dot p1 (p1.yzx + cast3 3.333))
+    in vec2 (fract ((p2.x + p2.y) * p2.z)) (fract ((p2.z + p2.x) * p2.y))
+
+hash3 : Vec3 -> Vec3
+hash3 p = let
+    p1 = vec3 (dot p (vec3 127.1 311.7 74.7)) (dot p (vec3 269.5 183.3 246.1)) (dot p (vec3 113.5 271.9 124.6))
+    in (cast3 (0.0 - 1.0)) + (cast3 2.0) * fract (sin p1 * cast3 43758.5453123)
 
 noise_ p = let
     const_step = vec3 110.0 241.0 171.0
@@ -23,7 +38,7 @@ noise_ p = let
     f = fract p
 
     n = dot i const_step
-    u = f * f * (vec3 3.0 3.0 3.0 - vec3 2.0 2.0 2.0 * f)
+    u = f * f * (cast3 3.0 - cast3 2.0 * f)
 
     first_corner = random (n + dot const_step (vec3 0.0 0.0 0.0))
     second_corner = random (n + dot const_step (vec3 1.0 0.0 0.0))
@@ -44,26 +59,71 @@ noise_ p = let
 
     in mix mix_y_1 mix_y_2 u.z
 
-hash : Vec3 -> Vec3
-hash p = let
-    p1 = vec3 (dot (cast3 p) (vec3 127.1 311.7 74.7)) (dot (cast3 p) (vec3 269.5 183.3 246.1)) (dot (cast3 p) (vec3 113.5 271.9 124.6))
-    in (cast3 (0.0 - 1.0)) + (cast3 2.0) * fract (sin p1 * cast3 43758.5453123)
-
-gnoise_ : Vec3 -> Vec4
-gnoise_ x = let
-    p = floor x
-    w = fract x
-
-    u = w * w * w * (w * (w * cast3 6.0 - cast3 15.0) + cast3 10.0)
-    du = cast3 30.0 * w * w (w * (w - cast3 2.0) + cast3 1.0)
-    ga = hash (i + vec3 0.0 0.0 0.0)
-    in u
-
 noise : Vec2 -> Float -> Float -> Float -> Vec4
 noise st time scale offset = let
     noised = noise_ (vec3 (st.x * scale) (st.y * scale) (offset * time))
     color = vec4 noised noised noised 1.0
     in color
+
+# Adapted from https://www.shadertoy.com/view/tldSRj
+wave_noise_ : Vec3 -> Float -> Float
+wave_noise_ p kF = let
+    i = floor p
+    f0 = fract p
+    f1 = f0 * f0 * (cast3 3.0 - cast3 2.0 * f0)
+    s0 = sin (kF * dot p (hash3 (i + vec3 0.0 0.0 0.0)))
+    s1 = sin (kF * dot p (hash3 (i + vec3 1.0 0.0 0.0)))
+    s2 = sin (kF * dot p (hash3 (i + vec3 0.0 1.0 0.0)))
+    s3 = sin (kF * dot p (hash3 (i + vec3 1.0 1.0 0.0)))
+    s4 = sin (kF * dot p (hash3 (i + vec3 0.0 0.0 1.0)))
+    s5 = sin (kF * dot p (hash3 (i + vec3 1.0 0.0 1.0)))
+    s6 = sin (kF * dot p (hash3 (i + vec3 0.0 1.0 1.0)))
+    s7 = sin (kF * dot p (hash3 (i + vec3 1.0 1.0 1.0)))
+
+    mix0 = mix s0 s1 f1.x
+    mix1 = mix s2 s3 f1.x
+    mix3 = mix mix0 mix1 f1.y
+
+    mix4 = mix s4 s5 f1.x
+    mix5 = mix s6 s7 f1.x
+    mix6 = mix mix4 mix5 f1.y
+    in mix mix3 mix6 f1.z
+
+wave_noise : Vec2 -> Float -> Float -> Float -> Float -> Vec4
+wave_noise st time kF scale offset = let
+    noised = wave_noise_ (vec3 (st.x * scale) (st.y * scale) (offset * time)) kF
+    color = vec4 noised noised noised 1.0
+    in color
+
+gradient_noise_ : Vec3 -> Vec4
+gradient_noise_ x = let
+    i = floor x
+    w = fract x
+
+    u = w * w * w * (w * (w * cast3 6.0 - cast3 15.0) + cast3 10.0)
+    du = cast3 30.0 * w * w * (w * (w - cast3 2.0) + cast3 1.0)
+    ga = hash3 (i + vec3 0.0 0.0 0.0)
+    gb = hash3 (i + vec3 1.0 0.0 0.0)
+    gc = hash3 (i + vec3 0.0 1.0 0.0)
+    gd = hash3 (i + vec3 1.0 1.0 0.0)
+    ge = hash3 (i + vec3 0.0 0.0 1.0)
+    gf = hash3 (i + vec3 1.0 0.0 1.0)
+    gg = hash3 (i + vec3 0.0 1.0 1.0)
+    gh = hash3 (i + vec3 1.0 1.0 1.0)
+
+    va = dot ga (w - vec3 0.0 0.0 0.0)
+    vb = dot gb (w - vec3 1.0 0.0 0.0)
+    vc = dot gc (w - vec3 0.0 1.0 0.0)
+    vd = dot gd (w - vec3 1.0 1.0 0.0)
+    ve = dot ge (w - vec3 0.0 0.0 1.0)
+    vf = dot gf (w - vec3 1.0 0.0 1.0)
+    vg = dot gg (w - vec3 0.0 1.0 1.0)
+    vh = dot gh (w - vec3 1.0 1.0 1.0)
+
+    # God help the poor sap that ever needs to debug this
+    r = va + u.x*(vb-va) + u.y*(vc-va) + u.z*(ve-va) + u.x*u.y*(va-vb-vc+vd) + u.y*u.z*(va-vc-ve+vg) + u.z*u.x*(va-vb-ve+vf) + ((0.0-va)+vb+vc-vd+ve-vf-vg+vh)*u.x*u.y*u.z
+    gba = ga + (cast3 u.x)*(gb-ga) + (cast3 u.y)*(gc-ga) + (cast3 u.z)*(ge-ga) + (cast3 (u.x*u.y))*(ga-gb-gc+gd) + (cast3 (u.y*u.z))*(ga-gc-ge+gg) + (cast3 (u.z*u.x))*(ga-gb-ge+gf) + (((vec3 0.0 0.0 0.0)-ga)+gb+gc-gd+ge-gf-gg+gh)*(cast3 (u.x*u.y*u.z)) + du * (vec3 vb vc ve - cast3 va + u.yzx*vec3 (va-vb-vc+vd) (va-vc-ve+vg) (va-vb-ve+vf) + u.zxy* vec3 (va-vb-ve+vf) (va-vb-vc+vd) (va-vc-ve+vg) + u.yzx*u.zxy*cast3 ((0.0-va)+vb+vc-vd+ve-vf-vg+vh) )
+    in vec4 r gba.x gba.y gba.z
 
 permute x = let
     a = vec2 34.0 1.0
@@ -154,28 +214,32 @@ fbm_ p = let
     amplitude_1 = 0.5
     frequency_1 = 0.0
 
-    value_2 = value_1 + amplitude_1 * simplex_noise_ p
+    value_2 = value_1 + amplitude_1 * wave_noise_ p 2.0
     amplitude_2 = amplitude_1 * 0.5
     p_2 = p * vec3 2.0 2.0 2.0
 
-    value_3 = value_2 + amplitude_2 * simplex_noise_ p_2
+    value_3 = value_2 + amplitude_2 * wave_noise_ p_2 2.0
     amplitude_3 = amplitude_2 * 0.5
     p_3 = p_2 * vec3 2.0 2.0 2.0
 
-    value_4 = value_3 + amplitude_3 * simplex_noise_ p_3
+    value_4 = value_3 + amplitude_3 * wave_noise_ p_3 2.0
     amplitude_4 = amplitude_3 * 0.5
     p_4 = p_3 * vec3 2.0 2.0 2.0
 
-    value_5 = value_4 + amplitude_4 * simplex_noise_ p_4
+    value_5 = value_4 + amplitude_4 * wave_noise_ p_4 2.0
     amplitude_5 = amplitude_4 * 0.5
     p_5 = p_4 * vec3 2.0 2.0 2.0
 
-    value_6 = value_5 + amplitude_5 * simplex_noise_ p_5
+    value_6 = value_5 + amplitude_5 * wave_noise_ p_5 2.0
     amplitude_6 = amplitude_5 * 0.5
     p_6 = p_5 * vec3 2.0 2.0 2.0
 
-    value_7 = value_6 + amplitude_6 * simplex_noise_ p_6
-    in value_7
+    value_7 = value_6 + amplitude_6 * wave_noise_ p_6 2.0
+    amplitude_7 = amplitude_6 * 0.5
+    p_7 = p_6 * vec3 2.0 2.0 2.0
+
+    value_8 = value_7 + amplitude_7 * wave_noise_ p_7 2.0
+    in value_8
 
 fbm : Vec2 -> Float -> Float -> Float -> Vec4
 fbm st time scale offset = let

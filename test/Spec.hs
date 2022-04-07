@@ -77,7 +77,7 @@ main = hspec $ do
         it "should typecheck std lib" $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
-            let exprs = first show $ P.parseModule "std.yin" $ stdLib 
+            let exprs = first errorBundlePretty $ P.parseModule "std.yin" $ stdLib 
             let res = exprs >>= (first (Gen.prettyShowErr stdLib) . inferTop glslStdLib )
             case res of
                 Right env -> do { putStrLn $ show env; True `shouldBe` True }
@@ -135,7 +135,7 @@ main = hspec $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
             case P.parseModule "std.yin" stdLib of
-                Right a -> do { putStrLn $ show a; True `shouldBe` True }
+                Right a -> True `shouldBe` True
                 Left err -> do { putStrLn $ errorBundlePretty err; False `shouldBe` True }
 
     describe "code generation" $ do

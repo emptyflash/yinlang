@@ -1,3 +1,3 @@
 main st = let
-    c = circle st 1.0
-    in vec4 c c c c
+    c = shape st 10.0 1.0 1.0
+    in c

@@ -3,4 +3,5 @@ packages:
 - .
 extra-deps:
 - megaparsec-8.0.0
+- file-embed-0.0.15.0
 resolver: lts-16.25

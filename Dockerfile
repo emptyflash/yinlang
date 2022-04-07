@@ -13,6 +13,7 @@ RUN stack build --dependencies-only
 COPY src/ src/
 COPY app/ app/
 COPY test/ test/
+COPY std.yin std.yin
 
 RUN stack install
 

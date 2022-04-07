@@ -42,8 +42,9 @@ generateLet env [] inExpr state = state ++ "return " ++ (generateExpr env inExpr
 generateLet env ((var, expr):xs) inExpr state = let
   typeResult = inferExpr env expr
   (newEnv, newState) = case typeResult of
-    Left error -> (env, state ++ (show error))
+    Left error -> undefined
     Right scheme@(Forall [] (TCon ty)) -> (extend env (var, scheme), state ++ (generateGlslType ty) ++ " " ++ var ++ " = " ++ (generateExpr env expr) ++ ";\n")
+    Right scheme -> undefined
   in generateLet newEnv xs inExpr newState
 
 generateApp :: TypeEnv -> Expr -> Expr -> String
@@ -96,8 +97,9 @@ generateDecl :: TypeEnv -> Decl -> String
 generateDecl env (_, TypeAscription _) = ""
 generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
 generateDecl env (var, lam@(Lam _ _ _ _)) = case typeof env var of
-    Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
-    a -> show a
+   Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
+   Nothing -> undefined -- TODO this whole thing should be a state error t monad stack
+
 generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr
 
 

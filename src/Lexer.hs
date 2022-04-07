@@ -65,7 +65,7 @@ reserved w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    p       = (:) <$> letterChar <*> many (alphaNumChar <|> char '_' <|> char '-')
+    p       = (:) <$> letterChar <*> many (alphaNumChar <|> char '_')
     check x = if x `elem` reservedNames
                 then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                 else return x
