@@ -119,6 +119,10 @@ table =
       , InfixL $ operatorOffset "-" Sub
       ]
     , [ InfixL $ operatorOffset "==" Eql
+      , InfixL $ operatorOffset ">" Gt
+      , InfixL $ operatorOffset ">=" Gte
+      , InfixL $ operatorOffset "<" Lt
+      , InfixL $ operatorOffset "<=" Lte
       ]
     ]
     where 

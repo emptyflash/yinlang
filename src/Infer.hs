@@ -161,6 +161,10 @@ ops tv Mul = tv `TArr` tv `TArr` tv
 ops tv Sub = tv `TArr` tv `TArr` tv
 ops tv Div = tv `TArr` tv `TArr` tv
 ops tv Eql = tv `TArr` tv `TArr` typeBool
+ops tv Gt = tv `TArr` tv `TArr` typeBool
+ops tv Gte = tv `TArr` tv `TArr` typeBool
+ops tv Lt = tv `TArr` tv `TArr` typeBool
+ops tv Lte = tv `TArr` tv `TArr` typeBool
 
 lookupEnv :: TypeEnv -> Var -> Offsets -> Infer (Subst, Type, Offsets)
 lookupEnv (TypeEnv env) x (start, end) =

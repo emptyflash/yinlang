@@ -39,7 +39,16 @@ data Lit
   | LFloat Float
   deriving (Show, Eq, Ord)
 
-data Binop = Add | Sub | Mul | Eql | Div
+data Binop
+  = Add
+  | Sub
+  | Mul
+  | Eql
+  | Div
+  | Gt
+  | Gte
+  | Lt
+  | Lte
   deriving (Eq, Ord, Show)
 
 data Program = Program [Decl] Expr deriving (Show, Eq)

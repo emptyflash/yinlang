@@ -4,8 +4,9 @@ import Text.Megaparsec
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.Char (toLower)
 
-import Data.List.NonEmpty as NonEmpty
 import Data.Bifunctor
 import Debug.Trace
 import Infer
@@ -36,6 +37,10 @@ generateOp op = case op of
     Mul -> " * "
     Eql -> " == "
     Div -> " / "
+    Gt -> " > "
+    Gte -> " >= "
+    Lt -> " < "
+    Lte -> " <= "
 
 generateLet :: TypeEnv -> [Decl] -> Expr -> String -> String
 generateLet env [] inExpr state = state ++ "return " ++ (generateExpr env inExpr) ++ ";\n"
@@ -60,7 +65,7 @@ generateExpr env expr = case expr of
   Lit lit -> case lit of
     LInt int -> show int
 
-    LBool bool -> show bool
+    LBool bool -> map toLower $ show bool
 
     LFloat float -> show float
 

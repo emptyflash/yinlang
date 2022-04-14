@@ -32,6 +32,10 @@ reservedOps =
     , "="
     , "\\"
     , "."
+    , ">"
+    , ">="
+    , "<"
+    , "<="
     ]
 
 makeSpaceConsumer :: Parser () -> Parser ()
