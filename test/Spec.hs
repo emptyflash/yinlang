@@ -132,6 +132,16 @@ main = hspec $ do
             let result = P.parseModule "test" expr
             result `shouldBe` Right [("test",TypeAscription (Forall [] (TArr (TCon Float) (TArr (TCon Vec2) (TArr (TCon Vec3) (TCon Vec4))))))]
 
+        it "should parse lambda expressions" $ do
+            let expr = "\\x -> x + 1.0"
+            let result = P.parseExpr expr
+            result `shouldBe` Right (Lam "x" (Op Add (Var "x" 6 8) (Lit (LFloat 1.0)) 8 10) 0 13)
+
+        it "should parse lambda declarations" $ do
+            let expr = "f = \\x -> x + 1.0"
+            let result = P.parseModule "test" expr
+            result `shouldBe` Right [("f", Lam "x" (Op Add (Var "x" 10 12) (Lit (LFloat 1.0)) 12 14) 4 17)]
+
         it "should parse the std lib" $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
@@ -192,7 +202,7 @@ main = hspec $ do
             True `shouldBe` True
 
         it "should generate anonymous functions" $ do
-            let program = "f : Float -> Float\nf x = x + 1.0\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"
+            let program = "f : Float -> Float\nf = \\x -> x + 1.0\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"
             case compileProgram program of
                 Right result -> do
                     putStrLn result
@@ -203,12 +213,60 @@ main = hspec $ do
                     False `shouldBe` True
 
         it "should support function currying" $ do
-            let program = "add : Float -> Float -> Float\nadd x y = x + y\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"
+            let program = "add : Float -> Float -> Float\nadd = \\x -> \\y -> x + y\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"
             case compileProgram program of
                 Right result -> do
                     putStrLn result
                     -- Should contain the function definition
                     result `shouldSatisfy` (\s -> "float add(float x, float y)" `isInfixOf` s)
+                Left err -> do
+                    putStrLn $ "Compilation failed: " ++ err
+                    False `shouldBe` True
+
+        it "should lift lambda in let declaration to top level" $ do
+            let program = "main : Vec2 -> Vec4\nmain coord = let f = \\x -> x + 1.0 in vec4 coord.x coord.y 1.0 1.0"
+            case compileProgram program of
+                Right result -> do
+                    putStrLn result
+                    -- Should contain an anonymous function definition at top level
+                    result `shouldSatisfy` (\s -> "float anon_" `isInfixOf` s && "(float x)" `isInfixOf` s)
+                    result `shouldSatisfy` (\s -> "return (x + 1.0)" `isInfixOf` s)
+                Left err -> do
+                    putStrLn $ "Compilation failed: " ++ err
+                    False `shouldBe` True
+
+        it "should generate top-level function for partial application" $ do
+            let program = "add : Float -> Float -> Float\nadd x y = x + y\nmain : Vec2 -> Vec4\nmain coord = let addOne = add 1.0 in vec4 coord.x coord.y 1.0 1.0"
+            case compileProgram program of
+                Right result -> do
+                    putStrLn result
+                    -- Should contain a generated function for partial application
+                    result `shouldSatisfy` (\s -> "float anon_" `isInfixOf` s && "(float y)" `isInfixOf` s)
+                    result `shouldSatisfy` (\s -> "return (x + y)" `isInfixOf` s)
+                Left err -> do
+                    putStrLn $ "Compilation failed: " ++ err
+                    False `shouldBe` True
+
+        it "should handle nested lambda expressions" $ do
+            let program = "main : Vec2 -> Vec4\nmain coord = let f = \\x -> \\y -> x + y in vec4 coord.x coord.y 1.0 1.0"
+            case compileProgram program of
+                Right result -> do
+                    putStrLn result
+                    -- Should contain function with multiple parameters
+                    result `shouldSatisfy` (\s -> "float anon_" `isInfixOf` s && "(float x, float y)" `isInfixOf` s)
+                    result `shouldSatisfy` (\s -> "return (x + y)" `isInfixOf` s)
+                Left err -> do
+                    putStrLn $ "Compilation failed: " ++ err
+                    False `shouldBe` True
+
+        it "should handle lambda with multiple parameters" $ do
+            let program = "main : Vec2 -> Vec4\nmain coord = let f = \\x y -> x + y in vec4 coord.x coord.y 1.0 1.0"
+            case compileProgram program of
+                Right result -> do
+                    putStrLn result
+                    -- Should contain function with multiple parameters
+                    result `shouldSatisfy` (\s -> "float anon_" `isInfixOf` s && "(float x, float y)" `isInfixOf` s)
+                    result `shouldSatisfy` (\s -> "return (x + y)" `isInfixOf` s)
                 Left err -> do
                     putStrLn $ "Compilation failed: " ++ err
                     False `shouldBe` True

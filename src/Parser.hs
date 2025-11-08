@@ -45,7 +45,7 @@ bool = (L.reserved "true" >> return (Lit (LBool True)))
 lambda :: Parser Expr
 lambda = do
   start <- getOffset
-  L.reserved "\\"
+  char '\\'
   args <- many L.identifier
   L.reserved "->"
   body <- expr
@@ -146,6 +146,16 @@ fundecl = do
   return $ (name, foldr (\v x -> Lam v x start end) body args)
 
 tyLit :: Parser T.GlslTypes
+
+-- Function declaration with lambda syntax
+lamdecl :: Parser Decl
+lamdecl = do
+  start <- getOffset
+  name <- L.identifier
+  L.reserved "="
+  body <- expr
+  end <- getOffset
+  return (name, body)
 tyLit = 
   L.symbol "Vec2" *> pure T.Vec2
   <|> L.symbol "Vec3" *> pure T.Vec3
@@ -181,11 +191,12 @@ uniformdecl = do
   pure (name, ParameterDecl $ Uniform type_)
 
 decl :: Parser Decl
-decl = 
-  try fundecl 
+decl =
+  try lamdecl
+  <|> try fundecl
   <|> typeAscription
-  -- <|> constdecl 
-  -- <|> attributedecl 
+  -- <|> constdecl
+  -- <|> attributedecl
   <|> uniformdecl
   -- <|> varyingdecl
 

@@ -5,6 +5,7 @@ import Text.Megaparsec
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.List (intercalate, (\\))
 import Data.Char (toLower)
 
 import Data.Bifunctor
@@ -61,6 +62,7 @@ collectFromExpr env expr = case expr of
     case inferExpr env expr of
       Right (Forall _ ty) -> do
         _ <- registerAnonymousFunction expr ty
+        -- For multi-parameter lambdas, we need to collect parameters recursively
         collectFromExpr (extend env (var, Forall [] (getFirstType ty))) body
       Left _ -> return () -- Type error, skip
 
@@ -123,7 +125,7 @@ generateLetWithMapping env mapping ((var, expr):xs) inExpr state = let
   (newEnv, newState) = case typeResult of
     Left error -> undefined
     Right scheme@(Forall [] (TCon ty)) -> (extend env (var, scheme), state ++ (generateGlslType ty) ++ " " ++ var ++ " = " ++ (generateExprWithMapping env mapping expr) ++ ";\n")
-    Right scheme -> undefined
+    Right scheme -> (extend env (var, scheme), state)
   in generateLetWithMapping newEnv mapping xs inExpr newState
 
 -- Generate application with function mapping support
@@ -200,6 +202,13 @@ generateLamWithMapping env mapping (Lam var expr@(Lam _ _ _ _) _ _) (TArr ty1 ty
 generateLam :: TypeEnv -> Expr -> Type -> String
 generateLam env expr ty = generateLamWithMapping env initialFunctionMapping expr ty
 
+-- Helper function to collect all parameters from a nested lambda structure
+collectLambdaParams :: Expr -> ([String], Expr)
+collectLambdaParams (Lam var body _ _) =
+  let (params, finalBody) = collectLambdaParams body
+  in (var : params, finalBody)
+collectLambdaParams body = ([], body)
+
 -- Generate all anonymous function definitions
 generateAnonymousFunctions :: TypeEnv -> FunctionMapping -> String
 generateAnonymousFunctions env mapping =
@@ -208,14 +217,35 @@ generateAnonymousFunctions env mapping =
     generateFunctionDef expr (name, ty) acc =
       case expr of
         Lam var body _ _ ->
-          let glslTy = glslType (getFirstType ty)
-              newEnv = extend env (var, Forall [] (TCon glslTy))
-              signature = generateGlslType (getLastType ty) ++ " " ++ name ++ "(" ++ generateGlslType glslTy ++ " " ++ var ++ ") {\n"
-              bodyCode = case body of
-                body@(Let _ _) -> generateExprWithMapping newEnv mapping body
-                body -> "return " ++ generateExprWithMapping newEnv mapping body ++ ";\n"
-          in signature ++ bodyCode ++ "}\n\n" ++ acc
+          let (params, finalBody) = collectLambdaParams expr
+          in if length params > 1
+             then
+               -- Multi-parameter lambda: generate single function with multiple parameters
+               let paramTypes = collectParamTypes ty (length params)
+                   paramDecls = zipWith (\p t -> generateGlslType t ++ " " ++ p) params paramTypes
+                   signature = generateGlslType (getLastType ty) ++ " " ++ name ++ "(" ++ intercalate ", " paramDecls ++ ") {\n"
+                   newEnv = foldl (\e (p, t) -> extend e (p, Forall [] (TCon t))) env (zip params paramTypes)
+                   bodyCode = case finalBody of
+                     finalBody@(Let _ _) -> generateExprWithMapping newEnv mapping finalBody
+                     finalBody -> "return " ++ generateExprWithMapping newEnv mapping finalBody ++ ";\n"
+               in signature ++ bodyCode ++ "}\n\n" ++ acc
+             else
+               -- Single parameter: generate single function
+               let glslTy = glslType (getFirstType ty)
+                   newEnv = extend env (var, Forall [] (TCon glslTy))
+                   signature = generateGlslType (getLastType ty) ++ " " ++ name ++ "(" ++ generateGlslType glslTy ++ " " ++ var ++ ") {\n"
+                   bodyCode = case body of
+                     body@(Let _ _) -> generateExprWithMapping newEnv mapping body
+                     body -> "return " ++ generateExprWithMapping newEnv mapping body ++ ";\n"
+               in signature ++ bodyCode ++ "}\n\n" ++ acc
         _ -> acc
+
+    -- Helper to collect parameter types from a function type
+    collectParamTypes :: Type -> Int -> [GlslTypes]
+    collectParamTypes ty n = take n $ go ty
+      where
+        go (TArr t1 t2) = glslType t1 : go t2
+        go _ = []
 
 generateDecl :: TypeEnv -> Decl -> String
 generateDecl env (_, TypeAscription _) = ""
