@@ -15,8 +15,14 @@ import Syntax
 import Type
 import qualified Parser as Parser
 
-import Control.Monad.State as State
+import Control.Monad.State as S
 import Control.Monad.Writer
+import Control.Monad.Except
+
+-- Monad for code generation with error handling and state
+type GenM = ExceptT String (S.State FunctionMapping)
+
+type GenState = S.State FunctionMapping
 
 -- Data structure for tracking generated anonymous functions
 data FunctionMapping = FunctionMapping
@@ -24,27 +30,36 @@ data FunctionMapping = FunctionMapping
   , functionMap :: Map.Map Expr (String, Type)
   }
 
-type GenState = State.State FunctionMapping
-
 -- Initial state for function mapping
 initialFunctionMapping :: FunctionMapping
 initialFunctionMapping = FunctionMapping 0 Map.empty
 
+-- Run the generation monad
+runGenM :: GenM a -> (Either String a, FunctionMapping)
+runGenM gen = S.runState (runExceptT gen) initialFunctionMapping
+
 -- Generate a unique function name
-generateFunctionName :: GenState String
+generateFunctionName :: GenM String
 generateFunctionName = do
-  mapping <- get
+  mapping <- lift S.get
   let counter = functionCounter mapping
-  put $ mapping { functionCounter = counter + 1 }
+  lift $ S.put $ mapping { functionCounter = counter + 1 }
   return $ "anon_" ++ show counter
 
 -- Register an anonymous function and return its generated name
-registerAnonymousFunction :: Expr -> Type -> GenState String
+registerAnonymousFunction :: Expr -> Type -> GenM String
 registerAnonymousFunction expr ty = do
   name <- generateFunctionName
-  mapping <- get
-  put $ mapping { functionMap = Map.insert expr (name, ty) (functionMap mapping) }
+  mapping <- lift S.get
+  lift $ S.put $ mapping { functionMap = Map.insert expr (name, ty) (functionMap mapping) }
   return name
+
+-- Helper functions for the monad
+throwGenError :: String -> GenM a
+throwGenError = throwError
+
+liftState :: S.State FunctionMapping a -> GenM a
+liftState = lift
 
 -- First pass: collect all anonymous functions and assign names
 collectAnonymousFunctions :: TypeEnv -> [Decl] -> GenState ()
@@ -56,23 +71,21 @@ collectFromDecl env (_, expr) = collectFromExpr env expr
 
 collectFromExpr :: TypeEnv -> Expr -> GenState ()
 collectFromExpr env expr = case expr of
-  Lam var body _ _ -> do
-    -- Get the type of this lambda from the environment
-    -- For anonymous functions, we need to infer the type
-    case inferExpr env expr of
-      Right (Forall _ ty) -> do
-        _ <- registerAnonymousFunction expr ty
-        -- For multi-parameter lambdas, we need to collect parameters recursively
-        collectFromExpr (extend env (var, Forall [] (getFirstType ty))) body
-      Left _ -> return () -- Type error, skip
-
   App e1 e2 _ _ -> do
     collectFromExpr env e1
     collectFromExpr env e2
 
   Let decls body -> do
-    mapM_ (collectFromDecl env) decls
-    collectFromExpr env body
+    -- Collect from declarations with proper environment extension
+    let collectWithEnv env' (var, expr) = do
+          collectFromExpr env' expr
+          case inferExpr env' expr of
+            Right scheme -> return (extend env' (var, scheme))
+            Left _ -> return env'  -- Skip if type inference fails
+
+    -- Process declarations sequentially, extending environment
+    newEnv <- foldM collectWithEnv env decls
+    collectFromExpr newEnv body
 
   If cond thenExpr elseExpr _ _ -> do
     collectFromExpr env cond
@@ -82,6 +95,21 @@ collectFromExpr env expr = case expr of
   Op _ e1 e2 _ _ -> do
     collectFromExpr env e1
     collectFromExpr env e2
+
+  Lam var body _ _ -> do
+    -- For anonymous functions in let expressions, we need to collect them
+    -- Try to infer the type of the lambda
+    case inferExpr env expr of
+      Right (Forall _ ty) -> do
+        -- Register the anonymous function with the inferred type
+        mapping <- S.get
+        let counter = functionCounter mapping
+        let name = "anon_" ++ show counter
+        let newMapping = mapping { functionCounter = counter + 1, functionMap = Map.insert expr (name, ty) (functionMap mapping) }
+        S.put newMapping
+        -- Continue collecting from the body
+        collectFromExpr (extend env (var, Forall [] (getFirstType ty))) body
+      Left _ -> return () -- Type error, skip
 
   _ -> return ()
 
@@ -117,7 +145,28 @@ generateOp op = case op of
     Lt -> " < "
     Lte -> " <= "
 
--- Generate let expression with function mapping support
+-- Generate let expression with function mapping support (monadic version)
+generateLetM :: TypeEnv -> [Decl] -> Expr -> GenM String
+generateLetM env [] inExpr = do
+  inExprCode <- generateExprM env inExpr
+  return $ "return " ++ inExprCode ++ ";\n"
+generateLetM env ((var, expr):xs) inExpr = do
+  typeResult <- case inferExpr env expr of
+    Left err -> throwGenError $ "Type error in let expression for variable '" ++ var ++ "': " ++ show err
+    Right scheme -> return scheme
+
+  let newEnv = extend env (var, typeResult)
+
+  case typeResult of
+    Forall [] (TCon ty) -> do
+      exprCode <- generateExprM env expr
+      restCode <- generateLetM newEnv xs inExpr
+      return $ (generateGlslType ty) ++ " " ++ var ++ " = " ++ exprCode ++ ";\n" ++ restCode
+    _ -> do
+      restCode <- generateLetM newEnv xs inExpr
+      return restCode
+
+-- Original non-monadic version for backward compatibility
 generateLetWithMapping :: TypeEnv -> FunctionMapping -> [Decl] -> Expr -> String -> String
 generateLetWithMapping env mapping [] inExpr state = state ++ "return " ++ (generateExprWithMapping env mapping inExpr) ++ ";\n"
 generateLetWithMapping env mapping ((var, expr):xs) inExpr state = let
@@ -128,7 +177,21 @@ generateLetWithMapping env mapping ((var, expr):xs) inExpr state = let
     Right scheme -> (extend env (var, scheme), state)
   in generateLetWithMapping newEnv mapping xs inExpr newState
 
--- Generate application with function mapping support
+-- Generate application with function mapping support (monadic version)
+generateAppM :: TypeEnv -> Expr -> Expr -> GenM String
+generateAppM env (Var fn _ _) expr = do
+  exprCode <- generateExprM env expr
+  return $ fn ++ "(" ++ exprCode
+generateAppM env (App a1 a2 _ _) expr = do
+  appCode <- generateAppM env a1 a2
+  exprCode <- generateExprM env expr
+  return $ appCode ++ ", " ++ exprCode
+generateAppM env e1 e2 = do
+  e1Code <- generateExprM env e1
+  e2Code <- generateExprM env e2
+  return $ e1Code ++ "(" ++ e2Code
+
+-- Original non-monadic version for backward compatibility
 generateAppWithMapping :: TypeEnv -> FunctionMapping -> Expr -> Expr -> String
 generateAppWithMapping env mapping (Var fn _ _) expr = fn ++ "(" ++ generateExprWithMapping env mapping expr
 generateAppWithMapping env mapping (App a1 a2 _ _) expr = generateAppWithMapping env mapping a1 a2 ++ ", " ++ generateExprWithMapping env mapping expr
@@ -142,7 +205,42 @@ generateLet env decls expr state = generateLetWithMapping env initialFunctionMap
 generateApp :: TypeEnv -> Expr -> Expr -> String
 generateApp env e1 e2 = generateAppWithMapping env initialFunctionMapping e1 e2
 
--- Generate expression with function mapping support
+-- Generate expression with function mapping support (monadic version)
+generateExprM :: TypeEnv -> Expr -> GenM String
+generateExprM env expr = case expr of
+  Var x _ _ -> return x
+
+  Let decls expr -> generateLetM env decls expr
+
+  Lit lit -> case lit of
+    LInt int -> return $ show int
+    LBool bool -> return $ map toLower $ show bool
+    LFloat float -> return $ show float
+
+  App e1 e2 _ _ -> do
+    appCode <- generateAppM env e1 e2
+    return $ appCode ++ ")"
+
+  If e1 e2 e3 _ _ -> do
+    cond <- generateExprM env e1
+    thenExpr <- generateExprM env e2
+    elseExpr <- generateExprM env e3
+    return $ cond ++ " ? " ++ thenExpr ++ " : " ++ elseExpr
+
+  Op op e1 e2 _ _ -> do
+    left <- generateExprM env e1
+    right <- generateExprM env e2
+    return $ "(" ++ left ++ generateOp op ++ right ++ ")"
+
+  Swizzle v1 v2 -> return $ v1 ++ "." ++ v2
+
+  Lam _ _ _ _ -> do
+    mapping <- lift get
+    case Map.lookup expr (functionMap mapping) of
+      Just (name, _) -> return name
+      Nothing -> throwGenError "Unregistered anonymous function"
+
+-- Original non-monadic version for backward compatibility
 generateExprWithMapping :: TypeEnv -> FunctionMapping -> Expr -> String
 generateExprWithMapping env mapping expr = case expr of
   Var x _ _ -> x
@@ -181,9 +279,26 @@ glslType :: Type -> GlslTypes
 glslType (TCon x) = x
 glslType (TArr t1 t2) = glslType t2
 glslType (TVar _) = Float  -- Default type variables to Float
-glslType t = error $ "glslType: unexpected type: " ++ show t
+glslType t = Float  -- Default fallback instead of error
 
--- Generate lambda function definition with function mapping support
+-- Generate lambda function definition with function mapping support (monadic version)
+generateLamM :: TypeEnv -> Expr -> Type -> GenM String
+generateLamM env (Lam var expr _ _) (TArr ty (TCon _)) = do
+  let glslTy = glslType ty
+  let newEnv = extend env (var, (Forall [] (TCon glslTy)))
+  body <- case expr of
+    expr@(Let _ _) -> generateExprM newEnv expr
+    expr -> do
+      exprCode <- generateExprM newEnv expr
+      return $ "return " ++ exprCode ++ ";\n"
+  return $ generateGlslType glslTy ++ " " ++ var ++ ") {\n" ++ body ++ "}\n\n"
+generateLamM env (Lam var expr@(Lam _ _ _ _) _ _) (TArr ty1 ty2) = do
+  let glslTy = glslType ty1
+  let newEnv = extend env (var, (Forall [] (TCon glslTy)))
+  restCode <- generateLamM newEnv expr ty2
+  return $ generateGlslType glslTy ++ " " ++ var ++ ", " ++ restCode
+
+-- Original non-monadic version for backward compatibility
 generateLamWithMapping :: TypeEnv -> FunctionMapping -> Expr -> Type -> String
 generateLamWithMapping env mapping (Lam var expr _ _) (TArr ty (TCon _)) = let
     glslTy = glslType ty
@@ -247,6 +362,20 @@ generateAnonymousFunctions env mapping =
         go (TArr t1 t2) = glslType t1 : go t2
         go _ = []
 
+-- Generate declaration with function mapping support (monadic version)
+generateDeclM :: TypeEnv -> Decl -> GenM String
+generateDeclM env (_, TypeAscription _) = return ""
+generateDeclM env (var, ParameterDecl (Uniform ty)) = return $ "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
+generateDeclM env (var, lam@(Lam _ _ _ _)) = case typeof env var of
+   Just (Forall _ ty) -> do
+     lamCode <- generateLamM env lam ty
+     return $ generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ lamCode
+   Nothing -> throwGenError $ "Type error: cannot determine type for lambda function '" ++ var ++ "'"
+generateDeclM env (var, expr) = do
+  exprCode <- generateExprM env expr
+  return $ var ++ " = " ++ exprCode
+
+-- Original non-monadic version for backward compatibility
 generateDecl :: TypeEnv -> Decl -> String
 generateDecl env (_, TypeAscription _) = ""
 generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
@@ -300,7 +429,7 @@ prettyShowErr prog err = let
           }
     in errorBundlePretty errorBundle
 
--- Multi-pass compilation with anonymous function support
+-- Multi-pass compilation with anonymous function support (monadic version)
 compileProgram :: String -> Either String String
 compileProgram prog = do
     decls <- first errorBundlePretty $ Parser.parseModule "<stdin>" prog
@@ -314,15 +443,20 @@ compileProgram prog = do
         Nothing -> Left "Missing main function with type Vec2 -> Vec4"
     let newDecls = renameMain decls
 
-    -- Multi-pass code generation
+    -- Multi-pass code generation using monadic error handling
     -- Pass 1: Collect anonymous functions
     let (_, functionMapping) = runState (collectAnonymousFunctions newEnv newDecls) initialFunctionMapping
 
-    -- Pass 2: Generate code
-    let functionDefs = generateAnonymousFunctions newEnv functionMapping
-    let code = newDecls >>= generateDeclWithMapping newEnv functionMapping
+    -- Pass 2: Generate code using monadic generation with the collected function mapping
+    let (genResult, finalMapping) = S.runState (runExceptT $ do
+          declCodes <- mapM (generateDeclM newEnv) newDecls
+          return $ concat declCodes) functionMapping
 
-    pure $ functionDefs ++ code ++ "\n\nvoid main() { gl_FragColor = userEntrypoint(gl_FragCoord.xy); }"
+    case genResult of
+      Left err -> Left err
+      Right code -> do
+        let functionDefs = generateAnonymousFunctions newEnv finalMapping
+        pure $ functionDefs ++ code ++ "\n\nvoid main() { gl_FragColor = userEntrypoint(gl_FragCoord.xy); }"
 
 -- Generate declarations with function mapping support
 generateDeclWithMapping :: TypeEnv -> FunctionMapping -> Decl -> String
