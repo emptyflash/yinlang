@@ -1,0 +1,2 @@
+f x = x + 1.0
+main coord = vec4(f 2.0, f 2.0, f 2.0, 1.0)

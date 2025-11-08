@@ -227,9 +227,11 @@ infer env ex = case ex of
     inferPrim env [e1, e2] (ops tv op)
 
   Swizzle var sw -> do
-    -- TODO Actually check that the swizzle is valid for the type and the name exists
-    -- Maybe use inferPrim?
-    return (nullSubst, swizzleType sw, offsetsFromExpr ex)
+    -- Check the type of the variable being swizzled
+    (s1, varTy, _) <- infer env (Var var 0 0)
+    -- For now, we'll assume any type with swizzle operations is valid
+    -- but we need to return the correct swizzle type
+    return (s1, swizzleType sw, offsetsFromExpr ex)
     
 
   Lit (LInt _)  -> return (nullSubst, typeInt, offsetsFromExpr ex)
@@ -260,7 +262,22 @@ inferTop env ((name, TypeAscription scheme):xs) = let
   in inferTop newEnv xs
 inferTop env ((name, ex):xs) = case inferExpr env ex of
   Left err -> Left err
-  Right ty -> inferTop (extend env (name, ty)) xs
+  Right inferredTy -> do
+    -- Check if there's already a type ascription for this name
+    case typeof env name of
+      Just ascribedTy -> do
+        -- Validate that the inferred type matches the ascribed type
+        case runInfer $ do
+          s1 <- unify (apply nullSubst (getTypeFromScheme inferredTy))
+                      (apply nullSubst (getTypeFromScheme ascribedTy)) (0, 0)
+          return (s1, getTypeFromScheme inferredTy, (0, 0)) of
+          Left unificationErr -> Left unificationErr
+          Right _ -> inferTop (extend env (name, ascribedTy)) xs
+      Nothing -> inferTop (extend env (name, inferredTy)) xs
+
+-- Helper to extract the type from a scheme
+getTypeFromScheme :: Scheme -> Type
+getTypeFromScheme (Forall _ ty) = ty
 
 normalize :: Scheme -> Scheme
 normalize (Forall ts body) = Forall (fmap snd ord) (normtype body)

@@ -1,10 +1,8 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.38.1.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: 688abd3bda3eb58653e3c420f81b876a7feb589785542b8a27732a6c17908b3a
 
 name:           yinlang
 version:        0.1.0.0
@@ -58,15 +56,15 @@ executable yin
   build-depends:
       base >=4.7 && <5
     , bifunctors
+    , bytestring
     , containers
     , directory
+    , file-embed
     , megaparsec >=8.0.0 && <8.1.0
     , mtl
     , parser-combinators
     , text
     , yinlang
-    , file-embed
-    , bytestring
   default-language: Haskell2010
 
 test-suite yinlang-test

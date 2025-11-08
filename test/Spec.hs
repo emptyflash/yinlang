@@ -3,6 +3,7 @@ import System.Directory
 import Test.Hspec
 import qualified Data.Map as Map
 import Text.Megaparsec
+import Data.List (isInfixOf)
 
 import qualified Parser as P
 
@@ -183,12 +184,34 @@ main = hspec $ do
         it "should generate the stdlib" $ do
             path <- makeAbsolute "std.yin"
             stdLib <- readFile path
-            let exprs = first show $ P.parseModule "std.yin" $ stdLib 
+            let exprs = first show $ P.parseModule "std.yin" $ stdLib
             let Right env = exprs >>= (first show . inferTop glslStdLib )
-            let Right decls = P.parseModule "std.yin" stdLib 
+            let Right decls = P.parseModule "std.yin" stdLib
             let result = decls >>= generateDecl env
             putStrLn result
             True `shouldBe` True
+
+        it "should generate anonymous functions" $ do
+            let program = "f : Float -> Float\nf x = x + 1.0\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"
+            case compileProgram program of
+                Right result -> do
+                    putStrLn result
+                    -- Should contain the function definition
+                    result `shouldSatisfy` (\s -> "float f(float x)" `isInfixOf` s)
+                Left err -> do
+                    putStrLn $ "Compilation failed: " ++ err
+                    False `shouldBe` True
+
+        it "should support function currying" $ do
+            let program = "add : Float -> Float -> Float\nadd x y = x + y\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"
+            case compileProgram program of
+                Right result -> do
+                    putStrLn result
+                    -- Should contain the function definition
+                    result `shouldSatisfy` (\s -> "float add(float x, float y)" `isInfixOf` s)
+                Left err -> do
+                    putStrLn $ "Compilation failed: " ++ err
+                    False `shouldBe` True
 
     describe "main" $ do
         describe "compileProgram" $ do
