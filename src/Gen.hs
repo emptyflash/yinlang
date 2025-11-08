@@ -123,7 +123,7 @@ generateLetWithMapping env mapping [] inExpr state = state ++ "return " ++ (gene
 generateLetWithMapping env mapping ((var, expr):xs) inExpr state = let
   typeResult = inferExpr env expr
   (newEnv, newState) = case typeResult of
-    Left error -> undefined
+    Left err -> error $ "Type error in let expression for variable '" ++ var ++ "': " ++ show err
     Right scheme@(Forall [] (TCon ty)) -> (extend env (var, scheme), state ++ (generateGlslType ty) ++ " " ++ var ++ " = " ++ (generateExprWithMapping env mapping expr) ++ ";\n")
     Right scheme -> (extend env (var, scheme), state)
   in generateLetWithMapping newEnv mapping xs inExpr newState
@@ -252,7 +252,7 @@ generateDecl env (_, TypeAscription _) = ""
 generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
 generateDecl env (var, lam@(Lam _ _ _ _)) = case typeof env var of
    Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
-   Nothing -> undefined -- TODO this whole thing should be a state error t monad stack
+   Nothing -> error $ "Type error: cannot determine type for lambda function '" ++ var ++ "'"
 
 generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr
 
@@ -311,6 +311,7 @@ compileProgram prog = do
     newEnv <- case Infer.typeof env "main" of
         Just (Forall [] (TCon Vec2 `TArr` TCon Vec4)) -> Right $ renameMainType env
         Just scheme -> Left $ "Missing main function with correct type. Expected: Vec2 -> Vec4, Found: " ++ show scheme
+        Nothing -> Left "Missing main function with type Vec2 -> Vec4"
     let newDecls = renameMain decls
 
     -- Multi-pass code generation
@@ -329,6 +330,6 @@ generateDeclWithMapping env mapping (_, TypeAscription _) = ""
 generateDeclWithMapping env mapping (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslType ty ++ " " ++ var ++ ";\n"
 generateDeclWithMapping env mapping (var, lam@(Lam _ _ _ _)) = case typeof env var of
    Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLamWithMapping env mapping lam ty
-   Nothing -> undefined -- TODO this whole thing should be a state error t monad stack
+   Nothing -> error $ "Type error: cannot determine type for lambda function '" ++ var ++ "'"
 
 generateDeclWithMapping env mapping (var, expr) = var ++ " = " ++ generateExprWithMapping env mapping expr

@@ -198,8 +198,32 @@ main = hspec $ do
             let Right env = exprs >>= (first show . inferTop glslStdLib )
             let Right decls = P.parseModule "std.yin" stdLib
             let result = decls >>= generateDecl env
-            putStrLn result
-            True `shouldBe` True
+
+            -- Verify that key functions are generated
+            result `shouldSatisfy` (\s -> "vec2 cast2(float v)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec3 cast3(float v)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 cast4(float v)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 shape(vec2 st_, float sides, float radius, float smoothing)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "float random(float p)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec2 hash2(vec2 p0)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec3 hash3(vec3 p)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 noise(vec2 st, float time, float scale, float offset)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 fbm(vec2 st, float time, float scale, float offset)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 dw(vec2 st, float time, float scale, float offset)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec2 kaleid(vec2 st, float nSides)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 osc(vec2 st, float time, float freq, float sync, float offset)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec3 rgb_to_hsv(vec3 c)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec3 hsv_to_rgb(vec3 c)" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "vec4 colorama(vec4 c0, float amount)" `isInfixOf` s)
+
+            -- Verify that the generated code contains proper GLSL syntax
+            result `shouldSatisfy` (\s -> "return " `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "{" `isInfixOf` s)
+            result `shouldSatisfy` (\s -> "}" `isInfixOf` s)
+
+            -- Verify no obvious syntax errors in the generated code
+            result `shouldSatisfy` (\s -> not ("undefined" `isInfixOf` s))
+            result `shouldSatisfy` (\s -> not ("error" `isInfixOf` s))
 
         it "should generate anonymous functions" $ do
             let program = "f : Float -> Float\nf = \\x -> x + 1.0\nmain : Vec2 -> Vec4\nmain coord = vec4 coord.x coord.y 1.0 1.0"

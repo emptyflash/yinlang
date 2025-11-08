@@ -1,4 +1,0 @@
-f : Float -> Float
-f x = x + 1.0
-main coord = vec4 1.0 1.0 1.0 1.0
-
