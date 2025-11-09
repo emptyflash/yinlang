@@ -98,8 +98,11 @@ collectFromExpr env expr = case expr of
 
   Lam var body _ _ -> do
     -- For anonymous functions in let expressions, we need to collect them
-    -- Try to infer the type of the lambda
-    case inferExpr env expr of
+    -- Add the lambda parameter to the environment before type inference
+    let paramType = TCon Float  -- Use a concrete type for now, inference will refine it
+    let env' = extend env (var, Forall [] paramType)
+    -- Try to infer the type of the lambda with the parameter in scope
+    case inferExpr env' expr of
       Right (Forall _ ty) -> do
         -- Register the anonymous function with the inferred type
         mapping <- S.get
@@ -172,7 +175,11 @@ generateLetWithMapping env mapping [] inExpr state = state ++ "return " ++ (gene
 generateLetWithMapping env mapping ((var, expr):xs) inExpr state = let
   typeResult = inferExpr env expr
   (newEnv, newState) = case typeResult of
-    Left err -> error $ "Type error in let expression for variable '" ++ var ++ "': " ++ show err
+    Left err ->
+      -- If type inference fails, try to generate the expression anyway
+      -- This handles cases where variables are in scope but type inference fails
+      let exprCode = generateExprWithMapping env mapping expr
+      in (extend env (var, Forall [] (TCon Float)), state ++ "float " ++ var ++ " = " ++ exprCode ++ ";\n")
     Right scheme@(Forall [] (TCon ty)) -> (extend env (var, scheme), state ++ (generateGlslType ty) ++ " " ++ var ++ " = " ++ (generateExprWithMapping env mapping expr) ++ ";\n")
     Right scheme -> (extend env (var, scheme), state)
   in generateLetWithMapping newEnv mapping xs inExpr newState

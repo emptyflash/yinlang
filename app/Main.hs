@@ -55,7 +55,6 @@ main = do
             program <- readInput (inputPath config)
             stdLib <- getStdLib (stdLibPath config)
             let completeProg = stdLib ++ "\n\n" ++ program
-            putStrLn completeProg
             let result = Gen.compileProgram completeProg
             case result of
                 Right code -> do
