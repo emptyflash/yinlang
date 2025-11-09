@@ -1,0 +1,14 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+main coord = let
+    st = coord / u_resolution
+    color1 = src (scale_coords st 1.009 1.0 1.0) u_tex0
+    color2 = dw st (u_time/5.0) 1.0 1.0
+    st2 = kaleid st 7.0
+    st3 = modulate st2 color1 1.0
+    color3 = osc st3 (u_time/5.0) 26.0 1.0 156.0 
+    color4 = mask color2 color3
+    color5 = layer color1 color4
+    in color5

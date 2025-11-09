@@ -1,0 +1,17 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+
+main coords = let
+    st = coords / u_resolution
+    c0 = shape st 4.0 0.99 0.001
+    c1 = wave_noise st u_time 25.0 10.0 1.0
+    c2 = mask c1 c0
+    c3 = src st u_tex0
+    st3 = scale_coords st 0.7 1.0 1.0
+    st4 = rotate st3 1.0 1.0 1.0
+    st2 = modulate st4 c3 10.0
+    c4 = src st4 u_tex0
+    c5 = diff c4 c2
+    in c5

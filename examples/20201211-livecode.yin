@@ -1,0 +1,14 @@
+uniform u_time : Float
+uniform u_resolution : Vec2
+uniform u_audio : Vec4
+
+main coord = let
+    st = coord / u_resolution
+    st_2 = kaleid st (1.0 * cos u_time + 2.0)
+    pos = vec3 (st_2.x * 1.0) (st_2.y * 0.5 * sin u_time) (cos u_time)
+    pos_2 = vec3 (dw_ pos) (dw_ pos) (dw_ pos)
+    r = dw_ pos_2
+    g = dw_ (vec3 r r pos_2.z - vec3 st.x st_2.y 0.0)
+    b = dw_ (vec3 g g pos.z + vec3 st.y st_2.x 0.0)
+    color = vec4 r b g 1.0
+    in color

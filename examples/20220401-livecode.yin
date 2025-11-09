@@ -1,0 +1,22 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+color_fbm  : Vec2 -> Float -> Float -> Float -> Vec4
+color_fbm st time scale offset = let
+    r = fbm_ (vec3 (st.x * scale) (st.y * scale) (time * offset + 1.0))
+    g = fbm_ (vec3 (st.x * scale) (st.y * scale) (time * offset + 3.0))
+    b = fbm_ (vec3 (st.x * scale) (st.y * scale) (time * offset + 5.0))
+    a = luminance (vec3 r g b)
+    in vec4 r g b a
+
+main coord = let
+    st = coord / u_resolution
+    c0 = color_fbm st u_time 3.0 1.0
+    st2 = scale_coords st 1.003 1.0 1.0
+    st3 = modulate_hue st2 u_resolution c0 1.0
+    st4 = st3 + vec2 0.0 0.0
+    c2 = src st4 u_tex0
+    c3 = color_fbm st u_time 0.5 0.1
+    c4 = layer c3 c2
+    in c4

@@ -1,0 +1,13 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+main coord = let
+    st = coord / u_resolution
+	c1 = fbm st (u_time/100.0) 1.0 1.0
+    st2 = modulate_hue st u_resolution c1 1.0
+    st3 = kaleid st2 10.0
+	c2 = dw st3 (u_time/100.0) 1.0 1.0
+    c3 = src st3 u_tex0
+    c4 = diff c2 c3
+	in c4

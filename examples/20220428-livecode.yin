@@ -1,0 +1,20 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+
+cym : Vec2 -> Float -> Float -> Float -> Float
+cym st0 m n L = let
+    st1 = st0 - vec2 0.5 0.5
+    pi = 3.14
+    r = cos (n * pi * st1.x / L) * cos (m * pi * st1.y / L) - cos (m * pi * st1.x / L) * cos (n * pi * st1.y / L)
+    in r
+
+main coords = let
+    st = coords / u_resolution
+    m = 5.0 * random (u_time + st.x) + sin u_time
+    n = 5.0 * random (u_time * 1.1 + st.x) + cos u_time
+    L = 0.2
+    r = cym st m n L
+    g = cym st m n (L + 0.01)
+    b = cym st m n (L + 0.02)
+    c0 = vec4 r g b 1.0
+    in c0

@@ -1,0 +1,12 @@
+uniform u_time : Float
+uniform u_resolution : Vec2
+
+main coord = let
+    st = coord / u_resolution
+    time = u_time / 10.0
+    color = dw st time 1.0 1.0
+    st2 = modulate (kaleid st (sin time * 10.0 + 2.0)) color (sin u_time)
+    color3 = osc st2 time 20.0 0.1 256.0
+    st3 = modulate st color3 (sin u_time)
+    color4 = osc st3 time 20.0 0.1 356.0
+    in color4

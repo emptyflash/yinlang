@@ -1,0 +1,12 @@
+uniform u_time : Float
+uniform u_resolution : Vec2
+
+main : Vec2 -> Vec4
+main coord = let
+    st = coord / u_resolution * vec2 10.0 10.0
+    color = dw st u_time 0.1 0.1
+    st2 = modulate st color 5.0
+    color2 = osc st2 u_time 5.0 1.0 (30.0 * sin (u_time / 10.0))
+    st3 = modulate st2 color 5.0
+    color3 = osc st3 u_time 5.0 1.0 (20.0 * cos (u_time / 10.0))
+    in diff color2 color3

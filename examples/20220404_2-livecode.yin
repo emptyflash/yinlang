@@ -1,0 +1,19 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+main coords = let
+    st = coords / u_resolution
+    st0 = kaleid st 6.0
+    c0 = dw st0 u_time 1.0 0.3
+    st2 = modulate st0 c0 5.0
+    c1 = osc st2 u_time 1.0 1.0 (128.0 + sin u_time)
+
+    c2 = src st u_tex0
+    c3 = wave_noise st0 u_time 10.0 1.0 0.7
+    st3 = modulate st c0 0.005
+    st6 = modulate_hue st3 u_resolution c2 1.0
+    st5 = scale_coords st6 (1.001 + 0.001 * sin (u_time / 10.0)) 1.0 1.0
+    c5 = src st5 u_tex0
+    c6 = blend c5 c1 (clamp (1.0 - (u_time / 3.0)) 0.007 1.0)
+    in c6

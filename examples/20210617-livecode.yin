@@ -1,0 +1,15 @@
+uniform u_time : Float
+uniform u_resolution : Vec2
+uniform u_audio : Vec4
+
+main coord = let
+    st = coord / u_resolution 
+    kale = kaleid st (10.0 * cos (u_time / 10.0)) 
+    kale2 = kale * vec2 (cos u_time + 1.0) (cos u_time + 1.0)
+    color = osc kale2 u_time 10.0 0.01 (100.0)
+    st2 = kale * vec2 70.0 70.0
+    r = dw_ (vec3 st2.x st2.y u_time)
+    g = dw_ (vec3 st2.y st2.x (cos u_time))
+    b = dw_ (vec3 st2.y st2.y (sin u_time))
+    color2 = vec4 r g b 1.0
+    in diff color2 color

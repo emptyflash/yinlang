@@ -1,0 +1,21 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+harmony : Float -> Float -> Float -> Float -> Vec2 -> Float
+harmony a b f h t = let
+    w = 2.0 * 3.14 * f
+    x = (a + b) * cos (w * t.x) - h * cos ((a - b) / b * w * t.x)
+    y = (a + b) * sin (w * t.y) - h * sin ((a - b) / b * w * t.y)
+    in if abs (x - y) < 0.1 then 1.0 else 0.0
+
+main coords = let
+    st = coords / u_resolution
+    h = harmony (6.0 + 4.0 * sin u_time) (0.1) 1.5 5.0 st
+    c0 = vec4 h h h 1.0
+    #c0 = shape (st + h) 100.0 0.01 0.001
+    #c2 = src st u_tex0
+    #c3 = mask c2 (invert c0 1.0)
+    #c4 = layer c0 c3
+    st2 = modulate st c0 1000.0
+    in c0

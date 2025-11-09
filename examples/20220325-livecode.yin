@@ -1,0 +1,20 @@
+uniform u_time : Float
+uniform u_audio : Vec4
+uniform u_resolution : Vec2
+uniform u_tex0 : Sampler2D
+
+# go to local.cameron.pizza
+
+main coord = let
+    st = coord / u_resolution
+    t0 = u_time / 100.0
+    st2 = kaleid st (7.0 + 5.0 * sin u_time)
+    c0 = dw st2 t0 0.6 (1.0 + u_audio.z / 10000.0)
+    st3 = modulate st2 c0 (1.0 + u_audio.x / 10000.0)
+    c1 = osc st3 (u_time / 10.0) 10.0 1.3 (16.0 + u_audio.w / 100.0)
+    c2 = shape st 100.0 0.5 0.001
+    c3 = mask c1 c2
+    st4 = scale_coords st 1.03 1.0 1.0
+    c4 = src st4 u_tex0
+    c5 = diff c3 c4
+    in c5

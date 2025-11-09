@@ -3,7 +3,8 @@ import System.Directory
 import Test.Hspec
 import qualified Data.Map as Map
 import Text.Megaparsec
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, isSuffixOf)
+import Control.Monad (forM_)
 
 import qualified Parser as P
 
@@ -320,3 +321,26 @@ main = hspec $ do
                 let Left res = compileProgram program
                 putStrLn res
                 res `shouldBe` "1:44:\n  |\n1 | main coord = let a = if true then 0.0 else vec2 1.0 1.0 in a\n  |                                            ^^^^^^^^^^^^^\nType mismatch: expected Vec2 but found Float\n"
+
+    describe "examples" $ do
+        it "should compile all example shader.yin files" $ do
+            files <- listDirectory "examples"
+            let yinFiles = filter (\f -> ".yin" `isSuffixOf` f) files
+            stdLib <- readFile "std.yin"
+
+            forM_ yinFiles $ \file -> do
+                let filePath = "examples/" ++ file
+                content <- readFile filePath
+                -- Skip empty files
+                if null content
+                    then putStrLn $ "Skipping empty file: " ++ file
+                    else do
+                        let fullProgram = stdLib ++ "\n\n" ++ content
+                        case compileProgram fullProgram of
+                            Right glsl -> do
+                                -- Just verify compilation succeeds - don't check GLSL content
+                                -- as examples may have different structure
+                                True `shouldBe` True
+                            Left err -> do
+                                putStrLn $ "Failed to compile " ++ file ++ ": " ++ err
+                                False `shouldBe` True

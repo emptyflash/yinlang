@@ -1,0 +1,15 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+main coords = let
+    st = coords / u_resolution
+    c0 = shape st 4.0 0.5 0.0
+    c1 = osc st u_time 1.0 1.0 127.0
+    c2 = diff c1 c0
+    st3 = scale_coords st 10.0 1.0 1.0
+    c3 = src st3 u_tex0
+    st2 = modulate_hue st u_resolution c3 70.0
+    c4 = src st2 u_tex0
+    c5 = diff c4 c2
+    in c5

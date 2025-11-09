@@ -1,0 +1,12 @@
+uniform u_resolution : Vec2
+uniform u_tex0 : Sampler2D
+uniform u_time : Float
+
+main coords = let
+    st = coords / u_resolution
+    c0 = shape st 100.0 (1.1 + 0.2 * sin u_time) 0.0
+    st2 = kaleid st 8.0
+    st3 = scale_coords st 0.9 1.0 1.0
+    c1 = src st3 u_tex0
+    c2 = diff c0 c1
+    in c2

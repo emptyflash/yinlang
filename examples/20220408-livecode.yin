@@ -1,0 +1,15 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+uniform u_audio : Vec4
+
+main coord = let
+    st = coord / u_resolution
+    c0 = src st u_tex0
+    c4 = wave_noise st u_time 50.0 1.0 0.1
+    st2 = modulate st c4 0.1
+    st3 = scale_coords st2 1.0 0.87 1.0
+    c3 = src st3 u_tex0
+    c1 = osc st3 u_time 3.0 1.0 136.0
+    c2 = blend c3 c1 0.1
+    in c2

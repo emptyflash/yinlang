@@ -1,0 +1,19 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+main coords = let
+    st = coords / u_resolution
+    st1 = st * vec2 3.1 3.1
+    c0 = gradient_noise_ (vec3 st1.x st1.y (0.4 * u_time))
+    c6 = gradient_noise_ (vec3 st1.x st1.y (0.8 * u_time))
+    a = luminance c0.rgb
+    c1 = vec4 c0.r c0.g c0.b a
+    c4 = osc st u_time 0.5 1.0 135.0
+    c5 = blend c6 c4 0.4
+    st2 = modulate_hue st u_resolution c5 5.0
+    st3 = scale_coords st2 1.0 (1.0 + 0.01 * sin u_time) (1.0 + 0.01 * cos u_time)
+    c2 = src st3 u_tex0
+    c3 = layer c1 c2
+    c9 = mask c4 c3
+    in c3

@@ -1,0 +1,9 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_audio : Vec4
+
+main : Vec2 -> Vec4
+main coords = let
+    st = coords / u_resolution
+    c0 = shape st 4.0 (0.7 + u_audio.x / 255.0) 0.01
+    in c0

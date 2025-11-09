@@ -360,3 +360,13 @@ colorama c0 amount = let
     c3 = hsv_to_rgb c2
     c4 = fract c3
     in vec4 c4.r c4.g c4.b c0.a
+
+select : Vec4 -> Float -> Float
+select v t = let
+    m = mod t 4.0
+    r = if m < 1.0 then v.x else if m < 2.0 then v.y else if m < 3.0 then v.z else v.w
+    in r
+
+pixelate st_ x y = let
+    xy = vec2 x y
+    in (floor (st_ * xy) + cast2 0.5) / xy

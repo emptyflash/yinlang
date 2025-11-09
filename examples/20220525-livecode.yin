@@ -1,0 +1,27 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+cym : Vec2 -> Float -> Float -> Float -> Float
+cym st0 m n L = let
+    st1 = st0 - vec2 0.5 0.5
+    pi = 3.14
+    r = cos (n * pi * st1.x / L) * cos (m * pi * st1.y / L) - cos (m * pi * st1.x / L) * cos (n * pi * st1.y / L)
+    in r
+
+main coords = let
+    st = coords / u_resolution
+    r = cym st (6.0 + 5.0 * sin (u_time / 10.0)) (select (vec4 4.0 5.0 2.0 3.0) (u_time / 10.0)) 0.3
+    c0 = vec4 r r r 1.0
+    st3 = kaleid st 5.0
+    st2 = modulate st3 c0 5.1
+    c1 = osc st2 u_time 0.5 1.0 127.0
+    st5 = scale_coords st (0.99 + (abs (0.01 * sin (u_time / 10.0)))) 1.0 1.0
+    st6 = rotate st5 0.1 0.001 0.1
+    c2 = shape st 4.0 10.1 10.1
+    c3 = src st6 u_tex0
+    c5 = mask c3 c2
+    st4 = modulate st c5 1.0
+    c4 = src st4 u_tex0
+    c6 = blend c1 c5 (0.9 + (abs (0.09 * cos (u_time / 10.0))))
+    in c6

@@ -1,0 +1,17 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+
+main coord = let
+    st = coord / u_resolution
+    c1 = dw st (u_time / 10.0) 1.0 1.0
+    st2 = kaleid st 10.0
+    c2 = osc st2 u_time 5.0 1.0 10.0
+    c3 = mask c2 c1
+    c4 = shape st 100.0 0.3 0.001
+    c5 = mask c3 c4
+    st3 = scale_coords st 1.008 1.0 1.0
+    st4 = rotate st3 u_time 0.01 0.01
+    c6 = src st4 u_tex0
+    c7 = layer c6 c5
+    in c7

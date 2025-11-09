@@ -1,0 +1,19 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_audio : Vec4
+uniform u_tex0 : Sampler2D
+
+main coord = let
+    st = coord / u_resolution
+    t = u_time / 300.0
+    c1 = shape st (u_audio.y / 10.0) (u_audio.x / 300.0) (u_audio.z / 400.0)
+    st2 = kaleid st 7.0
+    c2 = osc st2 t 5.0 102.0 (100.0 * sin t)
+    c3 = mask c2 c1
+    c4 = dw st2 t (u_audio.y / 400.0) 1.0
+    c5 = diff c3 c4
+    st4 = scale_coords st 0.999 1.0 1.0
+    c6 = src st u_tex0
+    st3 = modulate st c6 1.0
+    c7 = diff c5 c6
+    in c7

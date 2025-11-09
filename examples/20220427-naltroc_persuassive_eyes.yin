@@ -1,0 +1,42 @@
+uniform u_resolution : Vec2
+uniform u_time : Float
+uniform u_tex0 : Sampler2D
+uniform u_audio_time : Float
+uniform u_audio_time_real : Float
+uniform u_audio : Vec4
+
+part_1 st0 = let
+    t0 = u_audio_time / 55.0
+    c0 = shape st0 (4.0 + u_time * 0.0) (0.9 + 0.2 * u_audio.w / 255.0 + 0.01 * u_audio.y / 255.0) 0.0
+    st1 = kaleid st0 (select (vec4 7.0 5.0 8.0 6.0) t0)
+    c1 = osc st1 t0 10.0 0.2 126.0
+    c2 = diff c0 c1
+    in c2
+
+part_2 st0 = let
+    t0 = u_audio_time / 55.0
+    c0 = shape st0 (4.0 + u_time * 0.0) (0.9 + 0.2 * u_audio.w / 255.0 + 0.01 * u_audio.y / 255.0) 0.0
+    st1 = kaleid st0 (select (vec4 7.0 5.0 8.0 6.0) t0)
+    c1 = osc st1 t0 10.0 0.2 126.0
+    c2 = diff c0 c1
+    st2 = scale_coords st1 (if u_audio_time_real < 272.0 then 0.8 else if u_audio_time_real < 278.0 then (1.0 - (u_audio_time_real - 272.0) / (278.0 - 272.0)) else 0.00001) 1.0 1.0 
+    c3 = src st2 u_tex0
+    c4 = diff c2 c3
+    in c4
+
+original st0 = let
+    t0 = u_audio_time / 50.0
+    c0 = shape st0 (4.0 + u_time * 0.0) 0.0001 0.0
+    st3 = kaleid st0 10.0
+    c4 = osc st3 t0 10.0 0.2 126.0
+    c5 = diff c0 c4
+    st1 = rotate st0 1.0 (select (vec4 1.0 2.0 0.0 1.8) (t0 * 1.01)) 0.01 
+    st2 = scale_coords st1 (select (vec4 0.3 0.7 0.5 0.8) t0) 1.0 1.0 
+    c1 = src st2 u_tex0
+    c2 = blend c0 (diff c5 c1) (1.0)
+    in c2
+
+main coords = let
+    st = coords / u_resolution
+    c0 = if u_audio_time_real < 42.5 then part_1 st else part_2 st
+    in c0
