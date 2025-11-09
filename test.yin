@@ -1,3 +1,0 @@
-main st = let
-    c = shape st 10.0 1.0 1.0
-    in c
