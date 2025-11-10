@@ -227,6 +227,26 @@ main = hspec $ do
                     -- Verify no obvious syntax errors in the generated code
                     result `shouldSatisfy` (\s -> not ("undefined" `isInfixOf` s))
                     result `shouldSatisfy` (\s -> not ("error" `isInfixOf` s))
+
+                    -- NEW: Verify that no unnecessary anonymous functions are generated for top-level declarations
+                    -- These functions should NOT have anonymous duplicates
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "rgb_to_hsv" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "hsv_to_rgb" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "colorama" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "mask" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "diff" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "layer" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "cast2" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "cast3" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "cast4" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "random" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "hash2" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "hash3" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "noise" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "fbm" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "dw" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "kaleid" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s && "osc" `isInfixOf` s))
                 Left error -> do
                     putStrLn error
                     False `shouldBe` True
@@ -270,8 +290,10 @@ main = hspec $ do
             case compileProgram program of
                 Right result -> do
                     putStrLn result
-                    -- Should contain a generated function for partial application
-                    result `shouldSatisfy` (\s -> "float anon_" `isInfixOf` s && "(float y)" `isInfixOf` s)
+                    -- Should contain the function definition without unnecessary anonymous functions
+                    result `shouldSatisfy` (\s -> "float add(float x, float y)" `isInfixOf` s)
+                    -- Should NOT contain unnecessary anonymous functions for top-level declarations
+                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s) || ("anon_" `isInfixOf` s && "userEntrypoint" `isInfixOf` s))
                     result `shouldSatisfy` (\s -> "return (x + y)" `isInfixOf` s)
                 Left err -> do
                     putStrLn $ "Compilation failed: " ++ err

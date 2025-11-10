@@ -114,12 +114,27 @@ collectFromExpr env expr = case expr of
         collectFromExpr (extend env (var, Forall [] (getFirstType ty))) body
       Left _ -> return () -- Type error, skip
 
+  FunDecl _ args body _ _ -> do
+    -- For top-level function declarations, we don't collect them as anonymous functions
+    -- but we still need to collect any anonymous functions from their body
+    -- Add function parameters to the environment
+    let addParam env' var = extend env' (var, Forall [] (TCon Float))
+    let env' = foldl addParam env args
+    collectFromExpr env' body
+
   _ -> return ()
 
 -- Helper to get the first type in a function type
 getFirstType :: Type -> Type
 getFirstType (TArr t1 _) = t1
 getFirstType t = t
+
+-- Helper to collect parameter types from a function type
+collectParamTypes :: Type -> Int -> [GlslTypes]
+collectParamTypes ty n = take n $ go ty
+  where
+    go (TArr t1 t2) = glslType t1 : go t2
+    go _ = []
 
 generateGlslType :: GlslTypes -> String
 generateGlslType ty = case ty of
@@ -378,6 +393,19 @@ generateDeclM env (var, lam@(Lam _ _ _ _)) = case typeof env var of
      lamCode <- generateLamM env lam ty
      return $ generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ lamCode
    Nothing -> throwGenError $ "Type error: cannot determine type for lambda function '" ++ var ++ "'"
+generateDeclM env (var, FunDecl _ args body _ _) = case typeof env var of
+   Just (Forall _ ty) -> do
+     let paramTypes = collectParamTypes ty (length args)
+     let paramDecls = zipWith (\p t -> generateGlslType t ++ " " ++ p) args paramTypes
+     let signature = generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ intercalate ", " paramDecls ++ ") {\n"
+     let newEnv = foldl (\e (p, t) -> extend e (p, Forall [] (TCon t))) env (zip args paramTypes)
+     bodyCode <- case body of
+       body@(Let _ _) -> generateExprM newEnv body
+       body -> do
+         exprCode <- generateExprM newEnv body
+         return $ "return " ++ exprCode ++ ";\n"
+     return $ signature ++ bodyCode ++ "}\n\n"
+   Nothing -> throwGenError $ "Type error: cannot determine type for function '" ++ var ++ "'"
 generateDeclM env (var, expr) = do
   exprCode <- generateExprM env expr
   return $ var ++ " = " ++ exprCode
@@ -389,7 +417,17 @@ generateDecl env (var, ParameterDecl (Uniform ty)) = "uniform " ++ generateGlslT
 generateDecl env (var, lam@(Lam _ _ _ _)) = case typeof env var of
    Just (Forall _ ty) -> generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ generateLam env lam ty
    Nothing -> error $ "Type error: cannot determine type for lambda function '" ++ var ++ "'"
-
+generateDecl env (var, FunDecl _ args body _ _) = case typeof env var of
+   Just (Forall _ ty) ->
+     let paramTypes = collectParamTypes ty (length args)
+         paramDecls = zipWith (\p t -> generateGlslType t ++ " " ++ p) args paramTypes
+         signature = generateGlslType (getLastType ty) ++ " " ++ var ++ "(" ++ intercalate ", " paramDecls ++ ") {\n"
+         newEnv = foldl (\e (p, t) -> extend e (p, Forall [] (TCon t))) env (zip args paramTypes)
+         bodyCode = case body of
+           body@(Let _ _) -> generateExpr newEnv body
+           body -> "return " ++ generateExpr newEnv body ++ ";\n"
+     in signature ++ bodyCode ++ "}\n\n"
+   Nothing -> error $ "Type error: cannot determine type for function '" ++ var ++ "'"
 generateDecl env (var, expr) = var ++ " = " ++ generateExpr env expr
 
 

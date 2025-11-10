@@ -143,7 +143,7 @@ fundecl = do
   L.reserved "="
   body <-  expr
   end <- getOffset
-  return $ (name, foldr (\v x -> Lam v x start end) body args)
+  return $ (name, FunDecl name args body start end)
 
 tyLit :: Parser T.GlslTypes
 

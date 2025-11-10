@@ -20,6 +20,7 @@ data Expr
   | Swizzle Var Var
   | ParameterDecl GlslParameter
   | TypeAscription T.Scheme
+  | FunDecl Var [Var] Expr Offset Offset  -- Top-level function declaration with name, parameters, and body
   deriving (Show, Eq, Ord)
 
 offsetsFromExpr (Var _ s e) = (s, e)

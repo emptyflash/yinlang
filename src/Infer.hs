@@ -145,6 +145,13 @@ fresh = do
   put s{count = count s + 1}
   return $ TVar $ TV (letters !! count s)
 
+-- Helper to generate a fresh type variable name
+freshVar :: TypeEnv -> TVar
+freshVar env = TV $ "a" ++ show (count (getUnique env))
+  where
+    getUnique :: TypeEnv -> Unique
+    getUnique _ = Unique { count = 0 }  -- Simple implementation for now
+
 instantiate ::  Scheme -> Infer Type
 instantiate (Forall as t) = do
   as' <- mapM (const fresh) as
@@ -237,6 +244,18 @@ infer env ex = case ex of
   Lit (LInt _)  -> return (nullSubst, typeInt, offsetsFromExpr ex)
   Lit (LBool _) -> return (nullSubst, typeBool, offsetsFromExpr ex)
   Lit (LFloat _) -> return (nullSubst, typeFloat, offsetsFromExpr ex)
+
+  FunDecl _ args body _ _ -> do
+    -- For top-level function declarations, we need to infer the type of the function
+    -- by inferring the type of the body with the parameters in scope
+    -- First, create fresh type variables for each parameter
+    freshVars <- mapM (\_ -> fresh) args
+    let addParam env' (var, ty) = extend env' (var, Forall [] ty)
+    let env' = foldl addParam env (zip args freshVars)
+    (s1, t1, _) <- infer env' body
+    -- Build the function type from the parameters and return type
+    let funType = foldr TArr t1 freshVars
+    return (s1, funType, offsetsFromExpr ex)
 
 inferPrim :: TypeEnv -> [Expr] -> Type -> Infer (Subst, Type, Offsets)
 inferPrim env l t = do
