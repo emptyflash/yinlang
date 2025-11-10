@@ -286,14 +286,13 @@ main = hspec $ do
                     False `shouldBe` True
 
         it "should generate top-level function for partial application" $ do
-            let program = "add : Float -> Float -> Float\nadd x y = x + y\nmain : Vec2 -> Vec4\nmain coord = let addOne = add 1.0 in vec4 coord.x coord.y 1.0 1.0"
+            let program = "myadd : Float -> Float -> Float\nmyadd x y = x + y\nmain : Vec2 -> Vec4\nmain coord = let addOne = myadd 1.0 in vec4 (addOne coord.x) coord.y 1.0 1.0"
             case compileProgram program of
                 Right result -> do
                     putStrLn result
                     -- Should contain the function definition without unnecessary anonymous functions
-                    result `shouldSatisfy` (\s -> "float add(float x, float y)" `isInfixOf` s)
-                    -- Should NOT contain unnecessary anonymous functions for top-level declarations
-                    result `shouldSatisfy` (\s -> not ("anon_" `isInfixOf` s) || ("anon_" `isInfixOf` s && "userEntrypoint" `isInfixOf` s))
+                    result `shouldSatisfy` (\s -> "float myadd(float x, float y)" `isInfixOf` s)
+                    result `shouldSatisfy` (\s -> ("anon_" `isInfixOf` s && "userEntrypoint" `isInfixOf` s))
                     result `shouldSatisfy` (\s -> "return (x + y)" `isInfixOf` s)
                 Left err -> do
                     putStrLn $ "Compilation failed: " ++ err

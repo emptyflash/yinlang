@@ -1,2 +1,5 @@
+myadd : Float -> Float -> Float
+myadd x y = x + y
+
 main : Vec2 -> Vec4
-main coord = vec4 coord.x coord.y 1.0 1.0
+main coord = let y = myadd coord.y in vec4 coord.x (y 1.0) 1.0 1.0

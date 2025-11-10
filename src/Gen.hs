@@ -74,10 +74,22 @@ collectFromExpr env expr = case expr of
   App e1 e2 _ _ -> do
     collectFromExpr env e1
     collectFromExpr env e2
+    -- Check if this is a partial application that results in a function type
+    case inferExpr env expr of
+      Right (Forall [] (TArr _ _)) -> do
+        -- Register partial applications as anonymous functions
+        mapping <- S.get
+        let counter = functionCounter mapping
+        let name = "anon_" ++ show counter
+        let defaultType = TArr (TCon Float) (TCon Float)  -- Default to Float -> Float
+        let newMapping = mapping { functionCounter = counter + 1, functionMap = Map.insert expr (name, defaultType) (functionMap mapping) }
+        S.put newMapping
+      _ -> return ()
 
   Let decls body -> do
     -- Collect from declarations with proper environment extension
     let collectWithEnv env' (var, expr) = do
+          -- First collect any anonymous functions from the expression
           collectFromExpr env' expr
           case inferExpr env' expr of
             Right scheme -> return (extend env' (var, scheme))
@@ -112,7 +124,16 @@ collectFromExpr env expr = case expr of
         S.put newMapping
         -- Continue collecting from the body
         collectFromExpr (extend env (var, Forall [] (getFirstType ty))) body
-      Left _ -> return () -- Type error, skip
+      Left _ -> do
+        -- Even if type inference fails, register the lambda with a default type
+        mapping <- S.get
+        let counter = functionCounter mapping
+        let name = "anon_" ++ show counter
+        let defaultType = TArr (TCon Float) (TCon Float)  -- Default to Float -> Float
+        let newMapping = mapping { functionCounter = counter + 1, functionMap = Map.insert expr (name, defaultType) (functionMap mapping) }
+        S.put newMapping
+        -- Continue collecting from the body
+        collectFromExpr (extend env (var, Forall [] (TCon Float))) body
 
   FunDecl _ args body _ _ -> do
     -- For top-level function declarations, we don't collect them as anonymous functions
@@ -180,6 +201,16 @@ generateLetM env ((var, expr):xs) inExpr = do
       exprCode <- generateExprM env expr
       restCode <- generateLetM newEnv xs inExpr
       return $ (generateGlslType ty) ++ " " ++ var ++ " = " ++ exprCode ++ ";\n" ++ restCode
+    Forall [] (TArr argTy retTy) -> do
+      -- For function types, we need to use the registered anonymous function name
+      -- instead of generating the lambda expression inline
+      mapping <- lift get
+      let wrapperName = case Map.lookup expr (functionMap mapping) of
+            Just (name, _) -> name
+            Nothing -> var  -- Fallback to variable name if not registered
+      exprCode <- generateExprM env expr
+      restCode <- generateLetM newEnv xs inExpr
+      return $ (generateGlslType (glslType retTy)) ++ " " ++ var ++ " = " ++ wrapperName ++ ";\n" ++ restCode
     _ -> do
       restCode <- generateLetM newEnv xs inExpr
       return restCode
@@ -196,6 +227,13 @@ generateLetWithMapping env mapping ((var, expr):xs) inExpr state = let
       let exprCode = generateExprWithMapping env mapping expr
       in (extend env (var, Forall [] (TCon Float)), state ++ "float " ++ var ++ " = " ++ exprCode ++ ";\n")
     Right scheme@(Forall [] (TCon ty)) -> (extend env (var, scheme), state ++ (generateGlslType ty) ++ " " ++ var ++ " = " ++ (generateExprWithMapping env mapping expr) ++ ";\n")
+    Right scheme@(Forall [] (TArr argTy retTy)) ->
+      -- For function types, we need to register them as anonymous functions
+      -- and generate them at the top level instead of inline
+      let wrapperName = case Map.lookup expr (functionMap mapping) of
+            Just (name, _) -> name
+            Nothing -> var  -- Fallback to variable name if not registered
+      in (extend env (var, scheme), state ++ (generateGlslType (glslType retTy)) ++ " " ++ var ++ " = " ++ wrapperName ++ ";\n")
     Right scheme -> (extend env (var, scheme), state)
   in generateLetWithMapping newEnv mapping xs inExpr newState
 

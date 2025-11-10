@@ -1,5 +1,10 @@
+cast2 : Float -> Vec2
 cast2 v = vec2 v v
+
+cast3 : Float -> Vec3
 cast3 v = vec3 v v v
+
+cast4 : Float -> Vec4
 cast4 v = vec4 v v v v
 
 
@@ -15,6 +20,7 @@ shape st_ sides radius smoothing = let
 
 # Randomness
 
+random : Float -> Float
 random p = let
     p1 = fract (p * 0.011)
     p2 = p1 * 7.5
@@ -32,6 +38,7 @@ hash3 p = let
     p1 = vec3 (dot p (vec3 127.1 311.7 74.7)) (dot p (vec3 269.5 183.3 246.1)) (dot p (vec3 113.5 271.9 124.6))
     in (cast3 (0.0 - 1.0)) + (cast3 2.0) * fract (sin p1 * cast3 43758.5453123)
 
+noise_ : Vec3 -> Float
 noise_ p = let
     const_step = vec3 110.0 241.0 171.0
     i = floor p
@@ -125,13 +132,14 @@ gradient_noise_ x = let
     gba = ga + (cast3 u.x)*(gb-ga) + (cast3 u.y)*(gc-ga) + (cast3 u.z)*(ge-ga) + (cast3 (u.x*u.y))*(ga-gb-gc+gd) + (cast3 (u.y*u.z))*(ga-gc-ge+gg) + (cast3 (u.z*u.x))*(ga-gb-ge+gf) + (((vec3 0.0 0.0 0.0)-ga)+gb+gc-gd+ge-gf-gg+gh)*(cast3 (u.x*u.y*u.z)) + du * (vec3 vb vc ve - cast3 va + u.yzx*vec3 (va-vb-vc+vd) (va-vc-ve+vg) (va-vb-ve+vf) + u.zxy* vec3 (va-vb-ve+vf) (va-vb-vc+vd) (va-vc-ve+vg) + u.yzx*u.zxy*cast3 ((0.0-va)+vb+vc-vd+ve-vf-vg+vh) )
     in vec4 r gba.x gba.y gba.z
 
+permute : Vec4 -> Vec4
 permute x = let
     a = vec2 34.0 1.0
     c = (x * a.xxxx + a.yyyy) * x
     in mod c 289.0
 
 taylor_inv_sqrt : Vec4 -> Vec4
-taylor_inv_sqrt r = let 
+taylor_inv_sqrt r = let
     a = vec2 1.79284291400159 0.85373472095314
     in a.xxxx - a.yyyy * r
 
